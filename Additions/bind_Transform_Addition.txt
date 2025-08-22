@@ -1,0 +1,1 @@
+    v_sfTransform.attr("Identity") = sf::Transform::Identity;

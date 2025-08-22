@@ -1,0 +1,2 @@
+    m_sf.def("positiveRemainder", [](float a, float b) { return sf::priv::positiveRemainder(a, b); }, py::arg("a"), py::arg("b"));
+    v_sfAngle.attr("Zero") = sf::Angle::Zero;

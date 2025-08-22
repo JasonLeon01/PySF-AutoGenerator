@@ -1,0 +1,18 @@
+#pragma once
+
+#include "SFML/Graphics/Transform.hpp"
+#include "SFML/Graphics/Glsl.hpp"
+#include "A_utils.hpp"
+namespace py = pybind11;
+
+template <int N>
+void bind_MatrixT(py::module &m, const std::string& name) {
+    py::module m_sf = m.def_submodule("sf");
+    auto v_sfMatrix = py::class_<sf::priv::Matrix<N, N>>(m_sf, name.c_str());
+    v_sfMatrix.def(py::init<>([](const std::vector<float>& pointer) { return sf::priv::Matrix<N, N>(pointer.data()); }), py::arg("pointer"));
+    v_sfMatrix.def(py::init<>([](const sf::Transform& transform) { return sf::priv::Matrix<N, N>(transform); }), py::arg("transform"));
+    v_sfMatrix.def_readwrite("array", &sf::priv::Matrix<N, N>::array);
+    v_sfMatrix.def_static("copyMatrix", [](sf::Transform& source, sf::priv::Matrix<N, N>& dest) { return sf::priv::copyMatrix(source, dest); }, py::arg("source"), py::arg("dest"));
+}
+
+void D_bind_Matrix(py::module &m);

@@ -1,0 +1,4 @@
+    auto v_sfTimeSpan = py::class_<sf::Music::TimeSpan>(v_sfMusic, "TimeSpan");
+    v_sfTimeSpan.def(py::init<>());
+    v_sfTimeSpan.def_readwrite("offset", &sf::Music::TimeSpan::offset);
+    v_sfTimeSpan.def_readwrite("length", &sf::Music::TimeSpan::length);

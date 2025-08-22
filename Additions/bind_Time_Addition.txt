@@ -1,0 +1,1 @@
+    v_sfTime.attr("Zero") = sf::Time::Zero;
