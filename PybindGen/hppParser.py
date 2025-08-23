@@ -246,7 +246,7 @@ class Parser:
                             "name": child.spelling,
                             "displayname": child.displayname,
                             "type": node.enum_type.spelling,
-                            "value": qualified_const_name,
+                            "value": f"py::int_(static_cast<int>({qualified_const_name}))",
                             "access": self._get_access_specifier(child),
                             "readonly": True,
                             "line": (

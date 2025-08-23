@@ -7,8 +7,7 @@
 namespace py = pybind11;
 
 template <typename T>
-void bind_Vector2T(py::module &m, const std::string& name) {
-    py::module m_sf = m.def_submodule("sf");
+void bind_Vector2T(py::module &m_sf, const std::string& name) {
     auto v_sfVector2 = py::class_<sf::Vector2<T>>(m_sf, name.c_str());
     v_sfVector2.def(py::init<>());
     v_sfVector2.def(py::init<>([](T x, T y) { return sf::Vector2<T>(x, y); }), py::arg("x"), py::arg("y"));
@@ -34,8 +33,7 @@ void bind_Vector2T(py::module &m, const std::string& name) {
 }
 
 template <typename T>
-void bind_Vector2T_Explicit_Template(py::module &m, const std::string& name) {
-    py::module m_sf = m.def_submodule("sf");
+void bind_Vector2T_Explicit_Template(py::module &m_sf, const std::string& name) {
     auto v_sfVector2 = py::class_<sf::Vector2<T>>(m_sf, name.c_str());
     v_sfVector2.def(py::init<>());
     v_sfVector2.def(py::init<>([](T x, T y) { return sf::Vector2<T>(x, y); }), py::arg("x"), py::arg("y"));
@@ -68,8 +66,7 @@ void bind_Vector2T_Explicit_Template(py::module &m, const std::string& name) {
 }
 
 template <typename T>
-void bind_Vector3T(py::module &m, const std::string& name) {
-    py::module m_sf = m.def_submodule("sf");
+void bind_Vector3T(py::module &m_sf, const std::string& name) {
     auto v_sfVector3 = py::class_<sf::Vector3<T>>(m_sf, name.c_str());
     v_sfVector3.def(py::init<>());
     v_sfVector3.def(py::init<>([](T x, T y, T z) { return sf::Vector3<T>(x, y, z); }), py::arg("x"), py::arg("y"), py::arg("z"));
@@ -94,8 +91,7 @@ void bind_Vector3T(py::module &m, const std::string& name) {
     v_sfVector3.def("__ne__", [](sf::Vector3<T>& self, sf::Vector3<T> right) { return self != right; }, py::arg("right"));  // from global binary operator
 }
 template <typename T>
-void bind_Vector3T_Explicit_Template(py::module &m, const std::string& name) {
-    py::module m_sf = m.def_submodule("sf");
+void bind_Vector3T_Explicit_Template(py::module &m_sf, const std::string& name) {
     auto v_sfVector3 = py::class_<sf::Vector3<T>>(m_sf, name.c_str());
     v_sfVector3.def(py::init<>());
     v_sfVector3.def(py::init<>([](T x, T y, T z) { return sf::Vector3<T>(x, y, z); }), py::arg("x"), py::arg("y"), py::arg("z"));
@@ -123,8 +119,7 @@ void bind_Vector3T_Explicit_Template(py::module &m, const std::string& name) {
 }
 
 template <typename T>
-void bind_Vector4T(py::module &m, const std::string& name) {
-    py::module m_sf = m.def_submodule("sf");
+void bind_Vector4T(py::module &m_sf, const std::string& name) {
     auto v_sfVector4 = py::class_<sf::priv::Vector4<T>>(m_sf, name.c_str());
     v_sfVector4.def(py::init<>());
     v_sfVector4.def(py::init<>([](T x, T y, T z, T w) { return sf::priv::Vector4<T>(x, y, z, w); }), py::arg("x"), py::arg("y"), py::arg("z"), py::arg("w"));
@@ -134,4 +129,4 @@ void bind_Vector4T(py::module &m, const std::string& name) {
     v_sfVector4.def_readwrite("w", &sf::priv::Vector4<T>::w);
 }
 
-void B_bind_Vector(py::module &m);
+void B_bind_Vector(py::module &m_sf);

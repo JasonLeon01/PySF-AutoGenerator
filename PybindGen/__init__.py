@@ -21,6 +21,7 @@ Sorter = hppSorter.Sorter
 
 
 def generate_binding_from_hpp(
+    common_module_name,
     hpp_root,
     hpp_file,
     output_file,
@@ -30,10 +31,19 @@ def generate_binding_from_hpp(
     REPLACE_TYPE,
     SPECIFIC_TYPE,
     IGNORE_TYPE,
+    REPLACE_DEFAULT,
 ):
     parser = Parser(includes, hpp_root, hpp_file, cpp_version, ignored_macros)
     items = parser.get_dict()
-    generator = Generator(items, REPLACE_TYPE, SPECIFIC_TYPE, IGNORE_TYPE, hpp_file)
+    generator = Generator(
+        common_module_name,
+        items,
+        REPLACE_TYPE,
+        SPECIFIC_TYPE,
+        IGNORE_TYPE,
+        REPLACE_DEFAULT,
+        hpp_file,
+    )
     generator.emit_pybind_module(output_file)
 
 
@@ -52,7 +62,7 @@ def generate_hpp_file_from_hpp(
     print(f"Generated {output_file}")
 
 
-def generate_pybind_main(source_files, output_filename):
+def generate_pybind_main(common_module_name, source_files, output_filename):
     try:
         with open(output_filename, "w", encoding="utf-8") as f:
             f.write(
@@ -64,13 +74,16 @@ def generate_pybind_main(source_files, output_filename):
 
             f.write("PYBIND11_MODULE(pysf, m) {\n")
             f.write('    m.doc() = "SFML Library";\n\n')
+            f.write(
+                f'    auto m_{common_module_name} = m.def_submodule("{common_module_name}");\n'
+            )
 
             for filename in source_files:
                 if not "bind_" in filename:
                     continue
 
                 base_name = Path(filename).name.split(".")[0]
-                f.write(f"    {base_name}(m);\n")
+                f.write(f"    {base_name}(m_{common_module_name});\n")
 
             f.write("}\n")
 

@@ -12,6 +12,7 @@ parse_folders = ["Audio", "Graphics", "Network", "System", "Window"]
 output_folder = "output"
 cpp_version = "c++20"
 python_version = "3.10.0"
+common_module_name = "sf"
 ignored_macros = [
     "SFML_GRAPHICS_API",
     "SFML_AUDIO_API",
@@ -33,6 +34,13 @@ SPECIFIC_TYPE = {
     "wchar_t*": ["std::wstring&", "DATA.data()"],
 }
 IGNORE_TYPE = ["VkInstance_T*", "std::locale", "char32_t*"]
+REPLACE_DEFAULT = {
+    " = sf::Style::None": " = 0",
+    " = sf::Style::Titlebar": " = 1 << 0",
+    " = sf::Style::Resize": " = 1 << 1",
+    " = sf::Style::Close": " = 1 << 2",
+    " = sf::Style::Default": " = 7",
+}
 
 hpp_excludes = {
     "Audio": [
@@ -90,6 +98,7 @@ if __name__ == "__main__":
                 project_root, output_cpp, f"bind_{hpp_file.split('.')[0]}.cpp"
             )
             PybindGen.generate_binding_from_hpp(
+                common_module_name,
                 hpp_root,
                 read_file,
                 output_file,
@@ -99,6 +108,7 @@ if __name__ == "__main__":
                 REPLACE_TYPE,
                 SPECIFIC_TYPE,
                 IGNORE_TYPE,
+                REPLACE_DEFAULT,
             )
             PybindGen.generate_hpp_file_from_hpp(
                 read_file,
@@ -169,7 +179,9 @@ if __name__ == "__main__":
     print(f"Writing {len(to_write_files)} files to include folder.")
 
     PybindGen.generate_pybind_main(
-        to_write_files, os.path.join(project_root, output_folder, "main.cpp")
+        common_module_name,
+        to_write_files,
+        os.path.join(project_root, output_folder, "main.cpp"),
     )
 
     PybindGen.generate_cmakelists(to_write_files, self_include_files, python_version)

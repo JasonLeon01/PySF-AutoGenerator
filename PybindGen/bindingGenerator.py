@@ -53,12 +53,21 @@ IGNORE_LIST = [
 
 class Generator:
     def __init__(
-        self, dict_root, REPLACE_TYPE, SPECIFIC_TYPE, IGNORE_PARAM_TYPE, hpp_file
+        self,
+        common_module_name,
+        dict_root,
+        REPLACE_TYPE,
+        SPECIFIC_TYPE,
+        IGNORE_PARAM_TYPE,
+        REPLACE_DEFAULT,
+        hpp_file,
     ):
+        self._common_module_name = common_module_name
         self._dict_root = dict_root
         self._REPLACE_TYPE = REPLACE_TYPE
         self._SPECIFIC_TYPE = SPECIFIC_TYPE
         self._IGNORE_PARAM_TYPE = IGNORE_PARAM_TYPE
+        self._REPLACE_DEFAULT = REPLACE_DEFAULT
         self._hpp_file = hpp_file
 
     def emit_pybind_module(self, out_file):
@@ -68,6 +77,7 @@ class Generator:
         parent, file_name = file_names
         bind_name = f"{parent}/bind_{file_name}"
 
+        common_def = f'def_submodule("{self._common_module_name}");\n'
         with tempfile.NamedTemporaryFile("w+", encoding="utf-8", delete=False) as tmp_f:
             self._emit_items(tmp_f, self._dict_root, "    ", "m", "", globalfreeop_map)
             addition_file = f"Additions/bind_{file_name.split('.')[0]}_Addition.txt"
@@ -80,6 +90,27 @@ class Generator:
 
         auto_lines = [line for line in lines if line.strip().startswith("auto ")]
         other_lines = [line for line in lines if not line.strip().startswith("auto ")]
+
+        temp_auto_lines = []
+        for line in auto_lines:
+            if common_def in line:
+                continue
+            to_append = line.replace(f"m_{self._common_module_name}", "m")
+            for key, value in self._REPLACE_DEFAULT.items():
+                if key in to_append:
+                    to_append = to_append.replace(key, f"{value} /* {key} */ ")
+            temp_auto_lines.append(to_append)
+        auto_lines = temp_auto_lines
+        temp_other_lines = []
+        for line in other_lines:
+            if common_def in line:
+                continue
+            to_append = line.replace(f"m_{self._common_module_name}", "m")
+            for key, value in self._REPLACE_DEFAULT.items():
+                if key in to_append:
+                    to_append = to_append.replace(key, f"{value} /* {key} */ ")
+            temp_other_lines.append(to_append)
+        other_lines = temp_other_lines
 
         with open(out_file, "w", encoding="utf-8") as f:
             f.write(f'#include "{bind_name}"\n')
@@ -366,8 +397,6 @@ class Generator:
                 f'{indent}{var_name}.value("{const_name}", {full_enum_name}::{const_name});\n'
             )
 
-        f.write(f"{indent}{var_name}.export_values();\n")
-
     def _emit_cpp_class(self, f, cls, indent, module_var, namespace_prefix=""):
         class_name = cls["name"]
         full_class_name = f"{namespace_prefix}{cls['name']}"
@@ -476,6 +505,8 @@ class Generator:
                 and c.get("access") == "public"
             ):
                 var_name = c["name"]
+                if var_name == "None":
+                    var_name = "None_"
                 full_var_name = c["value"]
                 f.write(f'{indent}{class_var}.attr("{var_name}") = {full_var_name};\n')
 
@@ -787,6 +818,9 @@ class Generator:
                         f"Ignoring variable in IGNORE_LIST: {namespace_prefix}{var_name}"
                     )
                     continue
+
+                if var_name == "None":
+                    var_name = "None_"
 
                 if item.get("readonly"):
                     full_var_name = item["value"]

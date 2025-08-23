@@ -5,8 +5,7 @@
 namespace py = pybind11;
 
 template <typename T>
-void bind_RectT(py::module &m, const std::string& name) {
-    py::module m_sf = m.def_submodule("sf");
+void bind_RectT(py::module &m_sf, const std::string& name) {
     auto v_sfRect = py::class_<sf::Rect<T>>(m_sf, name.c_str());
     v_sfRect.def(py::init<>());
     v_sfRect.def(py::init<>([](sf::Vector2<T> position, sf::Vector2<T> size) { return sf::Rect<T>(position, size); }), py::arg("position"), py::arg("size"));
@@ -19,4 +18,4 @@ void bind_RectT(py::module &m, const std::string& name) {
     v_sfRect.def("__ne__", [](sf::Rect<T>& self, sf::Rect<T> right) { return self != right; }, py::arg("right"));  // from global binary operator
 }
 
-void C_bind_Rect(py::module &m);
+void C_bind_Rect(py::module &m_sf);
