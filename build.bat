@@ -30,6 +30,12 @@ if %errorlevel% neq 0 (
     exit /b
 )
 
+xcopy /E /I /H /Y required_dlls\* result\pysf\
+if %errorlevel% neq 0 (
+    echo Failed to copy DLLs, exiting...
+    exit /b
+)
+
 cd build\Release
 
 xcopy /Y pysf.pyd ..\..\result\pysf\

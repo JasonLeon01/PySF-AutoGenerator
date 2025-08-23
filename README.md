@@ -1,4 +1,4 @@
-# PySFML-AudoGenerator
+# PySFML-AutoGenerator
 
 This project automatically generates PyBind11 binding files for SFML 3.0.0, enabling Python developers to use SFML graphics library seamlessly.
 
