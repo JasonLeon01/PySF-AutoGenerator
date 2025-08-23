@@ -1,7 +1,14 @@
 import os
+import sys
 import shutil
 
-import build.Release.pysf.sf as sf
+if os.name == "nt":
+    import build.Release.pysf.sf as sf
+elif os.name == "posix":
+    import build.bin.pysf.sf as sf
+else:
+    print("Unsupported operating system")
+    sys.exit(1)
 
 if __name__ == "__main__":
     attrs = [

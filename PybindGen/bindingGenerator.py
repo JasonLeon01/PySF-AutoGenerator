@@ -59,6 +59,7 @@ class Generator:
         REPLACE_TYPE,
         SPECIFIC_TYPE,
         IGNORE_PARAM_TYPE,
+        IGNORE_RETURN_TYPE,
         REPLACE_DEFAULT,
         hpp_file,
     ):
@@ -67,6 +68,7 @@ class Generator:
         self._REPLACE_TYPE = REPLACE_TYPE
         self._SPECIFIC_TYPE = SPECIFIC_TYPE
         self._IGNORE_PARAM_TYPE = IGNORE_PARAM_TYPE
+        self._IGNORE_RETURN_TYPE = IGNORE_RETURN_TYPE
         self._REPLACE_DEFAULT = REPLACE_DEFAULT
         self._hpp_file = hpp_file
 
@@ -129,6 +131,10 @@ class Generator:
     def _should_ignore_function(self, func):
         if not self._IGNORE_PARAM_TYPE:
             return False
+
+        return_type = func.get("return_type", "void")
+        if return_type in self._IGNORE_RETURN_TYPE:
+            return True
 
         parameters = func.get("parameters", [])
         for param in parameters:

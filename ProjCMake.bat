@@ -1,11 +1,5 @@
 @echo off
 
-python parse.py
-if %errorlevel% neq 0 (
-    echo python parse.py Failed to parse the code
-    exit /b
-)
-
 if exist build rmdir /s /q build
 mkdir build
 cd build

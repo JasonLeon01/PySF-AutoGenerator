@@ -44,12 +44,17 @@ your-project/
 The `Additions` folder contains additional binding code for declarations found in SFML's `.inl` files. These files follow the naming pattern `bind_{classname}_Addition.txt` and are automatically appended to the end of the generated binding code during the build process.
 
 ## Building
+### If on Windows
+Execute the `build.bat` build script to generate the binding files.
 
-Execute the build script to generate the binding files:
-```bash
-build.bat
-```
+If you already have **output files**, you can just run `ProjCMake.bat` to start CMake process.
+
 When the build is complete, the binding files will be located in the `result` folder.
+
+### If on macOS
+Source building is not supported on macOS yet. You can download `output-source` and decompress it.
+
+Then, run `ProjCMake.sh` to start CMake process.
 
 ## Notes
 - Ensure all prerequisites are properly installed before running the build script

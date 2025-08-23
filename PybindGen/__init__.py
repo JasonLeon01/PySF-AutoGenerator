@@ -31,6 +31,7 @@ def generate_binding_from_hpp(
     REPLACE_TYPE,
     SPECIFIC_TYPE,
     IGNORE_TYPE,
+    IGNORE_RETURN_TYPE,
     REPLACE_DEFAULT,
 ):
     parser = Parser(includes, hpp_root, hpp_file, cpp_version, ignored_macros)
@@ -41,6 +42,7 @@ def generate_binding_from_hpp(
         REPLACE_TYPE,
         SPECIFIC_TYPE,
         IGNORE_TYPE,
+        IGNORE_RETURN_TYPE,
         REPLACE_DEFAULT,
         hpp_file,
     )
@@ -141,7 +143,7 @@ def generate_cmakelists(source_files, self_files, python_version):
             f.write(f'if (CMAKE_SYSTEM_NAME STREQUAL "Windows" AND MSVC)\n')
             f.write(f'    set(CMAKE_CXX_FLAGS_RELEASE "/O2 /DNDEBUG")\n')
             f.write(f"else()\n")
-            f.write(f'    set(CMAKE_CXX_FLAGS_RELEASE "-O3 -DNDEBUG -s -flto")\n')
+            f.write(f'    set(CMAKE_CXX_FLAGS_RELEASE "-O3 -DNDEBUG -flto")\n')
             f.write(f"endif()\n")
             f.write(f"add_library(pysf SHARED\n")
 
