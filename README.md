@@ -49,37 +49,7 @@ Execute the build script to generate the binding files:
 ```bash
 build.bat
 ```
-
-## Notes
-- Ensure all prerequisites are properly installed before running the build script
-- Make sure Python 3.10.0 is accessible via the `py -3.10` command
-- LLVM must be properly configured in your system PATH
-
-## Troubleshooting
-- If you encounter CMake version issues, ensure you're using a version less than 4.0
-- Verify that LLVM is correctly installed and accessible
-- Check that all Python dependencies are installed for the correct Python version (3.10.0)
-
-### Common Errors
-- **Error:** clang.cindex.LibclangError: [WinError 193] %1
-    **Cause:**
-    This usually happens when multiple `libclang.dll` files exist on your system, and Python loads the wrong one (e.g., a 32-bit version instead of the 64-bit LLVM version).
-
-    **Solution:**
-    1. Locate the correct `libclang.dll` in your LLVM installation (e.g.
-    `C:\Program Files\LLVM\bin\libclang.dll`).
-    2. Explicitly set the path in your script before using `clang.cindex`:
-    ```python
-    from clang.cindex import Config
-    Config.set_library_file(r"C:\Program Files\LLVM\bin\libclang.dll")
-    ```
-
-## Building
-
-Execute the build script to generate the binding files:
-```bash
-build.bat
-```
+When the build is complete, the binding files will be located in the `result` folder.
 
 ## Notes
 - Ensure all prerequisites are properly installed before running the build script

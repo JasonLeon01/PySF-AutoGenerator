@@ -6,3 +6,4 @@ SFML/
 pybind11/
 output/
 build/
+/result
