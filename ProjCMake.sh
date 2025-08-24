@@ -27,11 +27,6 @@ if [ $? -ne 0 ]; then
 fi
 
 cp -r required_libs/*.so result/pysf/
-if [ $? -ne 0 ]; then
-    echo "Failed to copy so files, exiting..."
-    exit 1
-fi
-
 cd build/bin
 
 cp pysf.so ../../result/pysf/

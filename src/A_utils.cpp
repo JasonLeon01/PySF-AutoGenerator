@@ -5,8 +5,9 @@ sf::SoundSource::EffectProcessor wrap_effect_processor(py::function func) {
                   float* outputFrames, unsigned int& outputFrameCount,
                   unsigned int frameChannelCount) {
         py::gil_scoped_acquire gil;
-        func(py::capsule(inputFrames), inputFrameCount,
-             py::capsule(outputFrames), outputFrameCount,
-             frameChannelCount);
+        std::vector<float> input_vec(inputFrames, inputFrames + inputFrameCount * frameChannelCount);
+        std::vector<float> output_vec(outputFrames, outputFrames + outputFrameCount * frameChannelCount);
+        func(input_vec, inputFrameCount, output_vec, outputFrameCount, frameChannelCount);
+        std::copy(output_vec.begin(), output_vec.end(), outputFrames);
     };
 }
