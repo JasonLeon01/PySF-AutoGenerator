@@ -28,7 +28,7 @@ void bind_VectorTCommon(py::class_<T>& v_sfVector) {
 template <typename T>
 void bind_Vector2T_Common(py::class_<sf::Vector2<T>>& v_sfVector2) {
     bind_VectorTCommon(v_sfVector2);
-    v_sfVector2.def(py::init<>([](T x, T y) { return sf::Vector2<T>(x, y); }), py::arg("x"), py::arg("y"));
+    v_sfVector2.def(py::init<>([](T x, T y) { return new sf::Vector2<T>(x, y); }), py::arg("x"), py::arg("y"));
     v_sfVector2.def("perpendicular", [](sf::Vector2<T>& self) { return self.perpendicular(); });
     v_sfVector2.def_readwrite("x", &sf::Vector2<T>::x);
     v_sfVector2.def_readwrite("y", &sf::Vector2<T>::y);
@@ -61,7 +61,7 @@ void bind_Vector2T_Explicit_Template(py::module &m_sf, const std::string& name) 
 template <typename T>
 void bind_Vector3T_Common(py::class_<sf::Vector3<T>>& v_sfVector3) {
     bind_VectorTCommon(v_sfVector3);
-    v_sfVector3.def(py::init<>([](T x, T y, T z) { return sf::Vector3<T>(x, y, z); }), py::arg("x"), py::arg("y"), py::arg("z"));
+    v_sfVector3.def(py::init<>([](T x, T y, T z) { return new sf::Vector3<T>(x, y, z); }), py::arg("x"), py::arg("y"), py::arg("z"));
     v_sfVector3.def_readwrite("x", &sf::Vector3<T>::x);
     v_sfVector3.def_readwrite("y", &sf::Vector3<T>::y);
     v_sfVector3.def_readwrite("z", &sf::Vector3<T>::z);
@@ -77,6 +77,7 @@ void bind_Vector3T(py::module &m_sf, const std::string& name) {
     auto v_sfVector3 = py::class_<sf::Vector3<T>>(m_sf, name.c_str());
     bind_Vector3T_Common(v_sfVector3);
 }
+
 template <typename T>
 void bind_Vector3T_Explicit_Template(py::module &m_sf, const std::string& name) {
     auto v_sfVector3 = py::class_<sf::Vector3<T>>(m_sf, name.c_str());
@@ -89,7 +90,7 @@ template <typename T>
 void bind_Vector4T(py::module &m_sf, const std::string& name) {
     auto v_sfVector4 = py::class_<sf::priv::Vector4<T>>(m_sf, name.c_str());
     v_sfVector4.def(py::init<>());
-    v_sfVector4.def(py::init<>([](T x, T y, T z, T w) { return sf::priv::Vector4<T>(x, y, z, w); }), py::arg("x"), py::arg("y"), py::arg("z"), py::arg("w"));
+    v_sfVector4.def(py::init<>([](T x, T y, T z, T w) { return new sf::priv::Vector4<T>(x, y, z, w); }), py::arg("x"), py::arg("y"), py::arg("z"), py::arg("w"));
     v_sfVector4.def_readwrite("x", &sf::priv::Vector4<T>::x);
     v_sfVector4.def_readwrite("y", &sf::priv::Vector4<T>::y);
     v_sfVector4.def_readwrite("z", &sf::priv::Vector4<T>::z);

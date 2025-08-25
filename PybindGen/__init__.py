@@ -32,6 +32,7 @@ def generate_binding_from_hpp(
     SPECIFIC_TYPE,
     IGNORE_TYPE,
     IGNORE_RETURN_TYPE,
+    SPECIFIC_RETURN_TYPE,
     REPLACE_DEFAULT,
 ):
     parser = Parser(includes, hpp_root, hpp_file, cpp_version, ignored_macros)
@@ -43,6 +44,7 @@ def generate_binding_from_hpp(
         SPECIFIC_TYPE,
         IGNORE_TYPE,
         IGNORE_RETURN_TYPE,
+        SPECIFIC_RETURN_TYPE,
         REPLACE_DEFAULT,
         hpp_file,
     )

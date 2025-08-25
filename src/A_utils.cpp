@@ -1,5 +1,14 @@
 #include "A_utils.hpp"
 
+sf::String toSFString(const std::string& str) {
+    return sf::String::fromUtf8(str.begin(), str.end());
+}
+
+std::string toUTF8String(const sf::String& str) {
+    auto utf8Bytes = str.toUtf8();
+    return std::string(utf8Bytes.begin(), utf8Bytes.end());
+}
+
 sf::SoundSource::EffectProcessor wrap_effect_processor(py::function func) {
     return [func](const float* inputFrames, unsigned int& inputFrameCount,
                   float* outputFrames, unsigned int& outputFrameCount,

@@ -296,7 +296,7 @@ class Parser:
 
         if hasattr(node, "access_specifier"):
             node_dict["access"] = self._get_access_specifier(node)
-        elif node.kind == clang.cindex.CursorKind.FIELD_DECL:
+        if node.kind == clang.cindex.CursorKind.FIELD_DECL:
             node_dict["type"] = node.type.spelling
             node_dict["access"] = self._get_access_specifier(node)
 

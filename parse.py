@@ -22,9 +22,9 @@ ignored_macros = [
 ]
 REPLACE_TYPE = {
     "std::filesystem::path": "std::string",
-    "sf::String": "std::string",
 }
 SPECIFIC_TYPE = {
+    "sf::String": ["std::string", "toSFString(DATA)"],
     "void*": ["py::buffer", "static_cast<std::uint8_t*>(DATA.request().ptr)"],
     "short*": ["std::vector<short>&", "DATA.data()"],
     "int*": ["std::vector<int>&", "DATA.data()"],
@@ -36,6 +36,8 @@ SPECIFIC_TYPE = {
 }
 IGNORE_TYPE = ["VkInstance_T*", "std::locale", "char32_t*"]
 IGNORE_RETURN_TYPE = ["GlFunctionPointer"]
+SPECIFIC_RETURN_TYPE = {"String": ["toUTF8String(DATA)", "def_string_property"]}
+
 REPLACE_DEFAULT = {
     " = sf::Style::None": " = 0",
     " = sf::Style::Titlebar": " = 1 << 0",
@@ -64,6 +66,7 @@ hpp_excludes = {
         "Exception.hpp",
         "Export.hpp",
         "NativeActivity.hpp",
+        "String.hpp",
         "SuspendAwareClock.hpp",
         "Utf.hpp",
         "Vector2.hpp",
@@ -111,6 +114,7 @@ if __name__ == "__main__":
                 SPECIFIC_TYPE,
                 IGNORE_TYPE,
                 IGNORE_RETURN_TYPE,
+                SPECIFIC_RETURN_TYPE,
                 REPLACE_DEFAULT,
             )
             PybindGen.generate_hpp_file_from_hpp(

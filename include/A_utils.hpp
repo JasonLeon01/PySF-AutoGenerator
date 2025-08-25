@@ -21,6 +21,21 @@
 
 namespace py = pybind11;
 
+sf::String toSFString(const std::string& str);
+
+std::string toUTF8String(const sf::String& str);
+
+template <typename Class>
+void def_string_property(py::class_<Class> &cls,
+                         const char *name,
+                         sf::String Class::*field) {
+    cls.def_property(
+        name,
+        [field](const Class &self) { return toUTF8String(self.*field); },
+        [field](Class &self, const std::string &value) { self.*field = toSFString(value); }
+    );
+}
+
 sf::SoundSource::EffectProcessor wrap_effect_processor(py::function func);
 
 template <typename T>

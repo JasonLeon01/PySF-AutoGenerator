@@ -60,6 +60,7 @@ class Generator:
         SPECIFIC_TYPE,
         IGNORE_PARAM_TYPE,
         IGNORE_RETURN_TYPE,
+        SPECIFIC_RETURN_TYPE,
         REPLACE_DEFAULT,
         hpp_file,
     ):
@@ -69,6 +70,7 @@ class Generator:
         self._SPECIFIC_TYPE = SPECIFIC_TYPE
         self._IGNORE_PARAM_TYPE = IGNORE_PARAM_TYPE
         self._IGNORE_RETURN_TYPE = IGNORE_RETURN_TYPE
+        self._SPECIFIC_RETURN_TYPE = SPECIFIC_RETURN_TYPE
         self._REPLACE_DEFAULT = REPLACE_DEFAULT
         self._hpp_file = hpp_file
 
@@ -182,6 +184,12 @@ class Generator:
 
         for key, value in self._SPECIFIC_TYPE.items():
             if normalized_type.startswith(key):
+                return value
+        return None
+
+    def _check_specific_return_type(self, return_type):
+        for key, value in self._SPECIFIC_RETURN_TYPE.items():
+            if key in return_type:
                 return value
         return None
 
@@ -501,7 +509,7 @@ class Generator:
                         )
                     else:
                         f.write(
-                            f"{indent}{class_var}.def(py::init([]({def_args}) {{ return {full_class_name}({call_args}); }}){py_args_str});\n"
+                            f"{indent}{class_var}.def(py::init([]({def_args}) {{ return new {full_class_name}({call_args}); }}){py_args_str});\n"
                         )
 
         for c in cls.get("children", []):
@@ -519,9 +527,16 @@ class Generator:
         for c in cls.get("children", []):
             if c["kind"] == "FIELD_DECL" and c.get("access") == "public":
                 field_name = c["name"]
-                f.write(
-                    f'{indent}{class_var}.def_readwrite("{field_name}", &{full_class_name}::{field_name});\n'
-                )
+                return_type = c.get("type", "void")
+                return_sample = self._check_specific_return_type(return_type)
+                if return_sample:
+                    f.write(
+                        f'{indent}{return_sample[1]}({class_var}, "{field_name}", &{full_class_name}::{field_name});\n'
+                    )
+                else:
+                    f.write(
+                        f'{indent}{class_var}.def_readwrite("{field_name}", &{full_class_name}::{field_name});\n'
+                    )
 
         for c in cls.get("children", []):
             if c["kind"] == "CXX_METHOD" and c.get("access") == "public":
@@ -539,6 +554,7 @@ class Generator:
                 name = c["name"]
                 params = c.get("parameters", [])
                 py_args_str = self._generate_py_args_string(params)
+                return_type = c.get("return_type", "void")
 
                 if name in IGNORE_LIST:
                     print(f"Ignoring method in IGNORE_LIST: {full_class_name}::{name}")
@@ -584,6 +600,9 @@ class Generator:
                             if def_args
                             else f"{full_class_name}& self"
                         )
+                        return_sample = self._check_specific_return_type(return_type)
+                        if return_sample:
+                            callcode = return_sample[0].replace("DATA", callcode)
                         f.write(
                             f'{indent}{class_var}.def("{pyname}", []({all_args}) {{ return {callcode}; }}{py_args_str});\n'
                         )
@@ -685,9 +704,15 @@ class Generator:
         full_func_name = f"{namespace_prefix}{func['name']}"
         call_args = self._get_forward_call_arguments(params)
 
-        lambda_body = f"{full_func_name}({call_args});"
+        lambda_body = f"{full_func_name}({call_args})"
+
+        return_sample = self._check_specific_return_type(return_type)
+        if return_sample:
+            lambda_body = return_sample[0].replace("DATA", lambda_body)
+
         if return_type != "void":
-            lambda_body = f"return {lambda_body[:-1]};"
+            lambda_body = f"return {lambda_body}"
+        lambda_body = f"{lambda_body};"
 
         f.write(
             f'{indent}{module_var}.def("{func["name"]}", []({def_args}) {{ {lambda_body} }} {py_args_str}); // Outer class function \n'
