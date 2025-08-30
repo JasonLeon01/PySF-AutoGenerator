@@ -9,6 +9,7 @@ INTERESTED_KINDS = (
     clang.cindex.CursorKind.CXX_METHOD,
     clang.cindex.CursorKind.FIELD_DECL,
     clang.cindex.CursorKind.CONSTRUCTOR,
+    clang.cindex.CursorKind.FUNCTION_TEMPLATE,
     clang.cindex.CursorKind.DESTRUCTOR,
     clang.cindex.CursorKind.FUNCTION_DECL,
     clang.cindex.CursorKind.NAMESPACE,
@@ -91,10 +92,7 @@ class Parser:
             if ref_cursor:
                 return self._get_qualified_name(ref_cursor)
 
-        if (
-            expr_cursor.kind == clang.cindex.CursorKind.BINARY_OPERATOR
-            and len(children) == 2
-        ):
+        if expr_cursor.kind == clang.cindex.CursorKind.BINARY_OPERATOR and len(children) == 2:
             op_token = [
                 t.spelling
                 for t in expr_cursor.get_tokens()
@@ -129,9 +127,7 @@ class Parser:
 
                 default_value = None
                 expr_children = [
-                    child
-                    for child in c.get_children()
-                    if child.kind.is_expression() or child.kind.is_unexposed()
+                    child for child in c.get_children() if child.kind.is_expression() or child.kind.is_unexposed()
                 ]
 
                 if expr_children:
@@ -193,12 +189,18 @@ class Parser:
                 return "public"
             return "private"
 
+    def _is_constructor_template(self, node):
+        if not node.semantic_parent:
+            return False
+
+        parent = node.semantic_parent
+        if parent.kind in (clang.cindex.CursorKind.CLASS_DECL, clang.cindex.CursorKind.STRUCT_DECL):
+            return node.spelling == parent.spelling
+
+        return False
+
     def _node_to_dict(self, node, target_filename):
-        if (
-            node.location
-            and node.location.file
-            and os.path.abspath(node.location.file.name) != target_filename
-        ):
+        if node.location and node.location.file and os.path.abspath(node.location.file.name) != target_filename:
             return None
 
         if (
@@ -249,11 +251,7 @@ class Parser:
                             "value": f"py::int_(static_cast<int>({qualified_const_name}))",
                             "access": self._get_access_specifier(child),
                             "readonly": True,
-                            "line": (
-                                child.location.line
-                                if child.location and child.location.file
-                                else None
-                            ),
+                            "line": (child.location.line if child.location and child.location.file else None),
                         }
                     )
             return hoisted_constants if hoisted_constants else None
@@ -265,9 +263,7 @@ class Parser:
         node_dict["kind"] = str(node.kind).replace("CursorKind.", "")
         node_dict["name"] = node.spelling
         node_dict["displayname"] = node.displayname
-        node_dict["line"] = (
-            node.location.line if node.location and node.location.file else None
-        )
+        node_dict["line"] = node.location.line if node.location and node.location.file else None
 
         if node.kind in (
             clang.cindex.CursorKind.CXX_METHOD,
@@ -330,9 +326,7 @@ class Parser:
             node_dict["kind"] = "ENUM_DECL"
             node_dict["name"] = node.spelling
             node_dict["displayname"] = node.displayname
-            node_dict["line"] = (
-                node.location.line if node.location and node.location.file else None
-            )
+            node_dict["line"] = node.location.line if node.location and node.location.file else None
 
             enum_constants = []
             for child in node.get_children():
@@ -341,15 +335,18 @@ class Parser:
                         {
                             "name": child.spelling,
                             "value": child.enum_value,
-                            "line": (
-                                child.location.line
-                                if child.location and child.location.file
-                                else None
-                            ),
+                            "line": (child.location.line if child.location and child.location.file else None),
                         }
                     )
             if enum_constants:
                 node_dict["constants"] = enum_constants
+
+        if node.kind == clang.cindex.CursorKind.FUNCTION_TEMPLATE:
+            if self._is_constructor_template(node):
+                node_dict["kind"] = "CONSTRUCTOR"
+                node_dict["is_template"] = True
+            else:
+                node_dict["kind"] = "FUNCTION_TEMPLATE"
 
         if node.kind == clang.cindex.CursorKind.VAR_DECL:
             node_dict["type"] = node.type.spelling
