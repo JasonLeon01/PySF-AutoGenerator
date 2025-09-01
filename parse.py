@@ -25,7 +25,7 @@ REPLACE_TYPE = {
 }
 SPECIFIC_TYPE = {
     "sf::String": ["std::string", "toSFString(DATA)"],
-    "void*": ["py::buffer", "static_cast<std::uint8_t*>(DATA.request().ptr)"],
+    ("void*", "None"): ["py::buffer", "static_cast<std::uint8_t*>(DATA.request().ptr)"],
     "short*": ["std::vector<short>&", "DATA.data()"],
     "int*": ["std::vector<int>&", "DATA.data()"],
     "float*": ["std::vector<float>&", "DATA.data()"],
@@ -33,17 +33,31 @@ SPECIFIC_TYPE = {
     "std::function<": ["py::function", "wrap_effect_processor(DATA)"],
     "char*": ["std::string&", "DATA.data()"],
     "wchar_t*": ["std::wstring&", "DATA.data()"],
+    ("HWND__*", "WindowHandle"): [
+        "uintptr_t",
+        "reinterpret_cast<sf::WindowHandle>(DATA)",
+    ],
+    ("void*", "WindowHandle"): [
+        "uintptr_t",
+        "reinterpret_cast<sf::WindowHandle>(DATA)",
+    ],
 }
 IGNORE_TYPE = ["VkInstance_T*", "std::locale", "char32_t*"]
 IGNORE_RETURN_TYPE = ["GlFunctionPointer"]
-SPECIFIC_RETURN_TYPE = {"String": ["toUTF8String(DATA)", "def_string_property"]}
-
+SPECIFIC_RETURN_TYPE = {
+    "String": ["toUTF8String(DATA)", "def_string_property"],
+    "WindowHandle": ["reinterpret_cast<uintptr_t>(DATA)", ""],
+}
 REPLACE_DEFAULT = {
     " = sf::Style::None": " = 0",
     " = sf::Style::Titlebar": " = 1 << 0",
     " = sf::Style::Resize": " = 1 << 1",
     " = sf::Style::Close": " = 1 << 2",
     " = sf::Style::Default": " = 7",
+}
+IGNORED_MODULE = ["priv"]
+SPECIAL_REPLACE = {
+    'v_sfRenderTexture.def("getTexture", [](sf::RenderTexture& self) { return self.getTexture(); });': 'v_sfRenderTexture.def("getTexture", [](sf::RenderTexture &self) -> const sf::Texture& { return self.getTexture(); }, py::return_value_policy::reference_internal);'
 }
 
 hpp_excludes = {
@@ -116,6 +130,8 @@ if __name__ == "__main__":
                 IGNORE_RETURN_TYPE,
                 SPECIFIC_RETURN_TYPE,
                 REPLACE_DEFAULT,
+                IGNORED_MODULE,
+                SPECIAL_REPLACE,
             )
             PybindGen.generate_hpp_file_from_hpp(
                 read_file,
