@@ -37,6 +37,11 @@ void bind_Vector2T_Common(py::class_<sf::Vector2<T>>& v_sfVector2) {
     v_sfVector2.def("__truediv__", [](sf::Vector2<T>& self, T right) { return self / right; }, py::arg("right"));  // from global binary operator
     v_sfVector2.def("__itruediv__", [](sf::Vector2<T>& self, T right) { return self /= right; }, py::arg("right"));  // from global binary operator
     v_sfVector2.def("__hash__", [](sf::Vector2<T>& self) { std::size_t seed = 0; hash_combine(seed, self.x); hash_combine(seed, self.y); return seed; });
+    v_sfVector2.def("__repr__", [](sf::Vector2<T>& self) {
+        std::stringstream ss;
+        ss << "Vector2(" << self.x << ", " << self.y << ")";
+        return ss.str();
+    });
 }
 
 template <typename T>
@@ -70,6 +75,11 @@ void bind_Vector3T_Common(py::class_<sf::Vector3<T>>& v_sfVector3) {
     v_sfVector3.def("__truediv__", [](sf::Vector3<T>& self, T right) { return self / right; }, py::arg("right"));  // from global binary operator
     v_sfVector3.def("__itruediv__", [](sf::Vector3<T>& self, T right) { return self /= right; }, py::arg("right"));  // from global binary operator
     v_sfVector3.def("__hash__", [](sf::Vector3<T>& self) { std::size_t seed = 0; hash_combine(seed, self.x); hash_combine(seed, self.y); hash_combine(seed, self.z); return seed; });
+    v_sfVector3.def("__repr__", [](sf::Vector3<T>& self) {
+        std::stringstream ss;
+        ss << "Vector3(" << self.x << ", " << self.y << ", " << self.z << ")";
+        return ss.str();
+    });
 }
 
 template <typename T>
@@ -96,6 +106,11 @@ void bind_Vector4T(py::module &m_sf, const std::string& name) {
     v_sfVector4.def_readwrite("z", &sf::priv::Vector4<T>::z);
     v_sfVector4.def_readwrite("w", &sf::priv::Vector4<T>::w);
     v_sfVector4.def("__hash__", [](sf::priv::Vector4<T>& self) { std::size_t seed = 0; hash_combine(seed, self.x); hash_combine(seed, self.y); hash_combine(seed, self.z); hash_combine(seed, self.w); return seed; });
+    v_sfVector4.def("__repr__", [](sf::priv::Vector4<T>& self) {
+        std::stringstream ss;
+        ss << "Vector4(" << self.x << ", " << self.y << ", " << self.z << ", " << self.w << ")";
+        return ss.str();
+    });
     add_copy_support(v_sfVector4);
 }
 

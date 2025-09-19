@@ -48,11 +48,7 @@ class Sorter:
                     parts.append(current.spelling)
 
                 parent = current.semantic_parent
-                if (
-                    not parent
-                    or parent.kind == cindex.CursorKind.TRANSLATION_UNIT
-                    or parent == current
-                ):
+                if not parent or parent.kind == cindex.CursorKind.TRANSLATION_UNIT or parent == current:
                     break
                 current = parent
 
@@ -86,9 +82,7 @@ class Sorter:
             if "<" in type_spelling:
                 type_spelling = type_spelling.split("<")[0]
 
-            type_spelling = (
-                type_spelling.replace("const ", "").replace("volatile ", "").strip()
-            )
+            type_spelling = type_spelling.replace("const ", "").replace("volatile ", "").strip()
 
             return type_spelling
 
@@ -179,9 +173,7 @@ class Sorter:
                         if is_definition:
                             qualified_name = self._get_qualified_name(cursor)
                             if qualified_name:
-                                self.type_definitions[qualified_name] = (
-                                    current_file_path
-                                )
+                                self.type_definitions[qualified_name] = current_file_path
                                 print(
                                     f"    Found type definition: {qualified_name} in {os.path.basename(current_file_path)}"
                                 )
@@ -189,9 +181,7 @@ class Sorter:
                                 simple_name = cursor.spelling
                                 if simple_name and simple_name != qualified_name:
                                     fallback_key = f"{current_file_path}::{simple_name}"
-                                    self.type_definitions[fallback_key] = (
-                                        current_file_path
-                                    )
+                                    self.type_definitions[fallback_key] = current_file_path
 
                 except Exception:
                     continue
@@ -213,17 +203,11 @@ class Sorter:
                 if partial_name in self.type_definitions:
                     return self.type_definitions[partial_name]
 
-        simple_name = (
-            type_qualified_name.split("::")[-1]
-            if "::" in type_qualified_name
-            else type_qualified_name
-        )
+        simple_name = type_qualified_name.split("::")[-1] if "::" in type_qualified_name else type_qualified_name
         fallback_key = f"{current_file}::{simple_name}"
 
         for key, file_path in self.type_definitions.items():
-            if (
-                key.endswith(f"::{simple_name}") or key == simple_name
-            ) and file_path != current_file:
+            if (key.endswith(f"::{simple_name}") or key == simple_name) and file_path != current_file:
                 if fallback_key in self.type_definitions:
                     continue
                 return file_path
@@ -238,9 +222,7 @@ class Sorter:
                 try:
                     if cursor and cursor.kind == cindex.CursorKind.INCLUSION_DIRECTIVE:
                         included_file = cursor.get_included_file()
-                        if included_file and self._is_in_project_headers(
-                            included_file.name
-                        ):
+                        if included_file and self._is_in_project_headers(included_file.name):
                             included_path = os.path.abspath(included_file.name)
 
                             if included_path == current_file_path:
@@ -250,9 +232,7 @@ class Sorter:
                                 )
                                 continue
 
-                            self.strong_dependencies[current_file_path].add(
-                                included_path
-                            )
+                            self.strong_dependencies[current_file_path].add(included_path)
                             print(
                                 f"    Direct include: {os.path.basename(current_file_path)} -> {os.path.basename(included_path)}"
                             )
@@ -273,14 +253,8 @@ class Sorter:
 
                     if cursor.kind == cindex.CursorKind.CXX_BASE_SPECIFIER:
                         definition = cursor.get_definition()
-                        if (
-                            definition
-                            and definition.location
-                            and definition.location.file
-                        ):
-                            dependency_file = os.path.abspath(
-                                definition.location.file.name
-                            )
+                        if definition and definition.location and definition.location.file:
+                            dependency_file = os.path.abspath(definition.location.file.name)
                             is_strong_dependency = True
                             base_class_name = self._get_qualified_name(definition)
                             print(
@@ -289,9 +263,7 @@ class Sorter:
 
                     elif cursor.kind == cindex.CursorKind.FIELD_DECL:
                         if cursor.type and self._requires_complete_type(cursor.type):
-                            type_qualified_name = self._get_type_qualified_name(
-                                cursor.type
-                            )
+                            type_qualified_name = self._get_type_qualified_name(cursor.type)
                             if type_qualified_name:
                                 dependency_file = self._find_type_definition_file(
                                     type_qualified_name, current_file_path
@@ -302,9 +274,7 @@ class Sorter:
                                         f"    Field dependency (complete type): {os.path.basename(current_file_path)} -> {os.path.basename(dependency_file)} (field {cursor.spelling}: {type_qualified_name})"
                                     )
                         elif cursor.type:
-                            type_qualified_name = self._get_type_qualified_name(
-                                cursor.type
-                            )
+                            type_qualified_name = self._get_type_qualified_name(cursor.type)
                             if type_qualified_name:
                                 dependency_file = self._find_type_definition_file(
                                     type_qualified_name, current_file_path
@@ -317,9 +287,7 @@ class Sorter:
 
                     elif cursor.kind in (cindex.CursorKind.VAR_DECL,):
                         if cursor.type and self._requires_complete_type(cursor.type):
-                            type_qualified_name = self._get_type_qualified_name(
-                                cursor.type
-                            )
+                            type_qualified_name = self._get_type_qualified_name(cursor.type)
                             if type_qualified_name:
                                 dependency_file = self._find_type_definition_file(
                                     type_qualified_name, current_file_path
@@ -334,12 +302,8 @@ class Sorter:
                         cindex.CursorKind.CXX_METHOD,
                         cindex.CursorKind.FUNCTION_DECL,
                     ):
-                        if cursor.result_type and self._requires_complete_type(
-                            cursor.result_type
-                        ):
-                            type_qualified_name = self._get_type_qualified_name(
-                                cursor.result_type
-                            )
+                        if cursor.result_type and self._requires_complete_type(cursor.result_type):
+                            type_qualified_name = self._get_type_qualified_name(cursor.result_type)
                             if type_qualified_name:
                                 dependency_file = self._find_type_definition_file(
                                     type_qualified_name, current_file_path
@@ -358,25 +322,17 @@ class Sorter:
                                     and arg_cursor.type
                                     and self._requires_complete_type(arg_cursor.type)
                                 ):
-                                    type_qualified_name = self._get_type_qualified_name(
-                                        arg_cursor.type
-                                    )
+                                    type_qualified_name = self._get_type_qualified_name(arg_cursor.type)
                                     if type_qualified_name:
-                                        param_dep_file = (
-                                            self._find_type_definition_file(
-                                                type_qualified_name, current_file_path
-                                            )
+                                        param_dep_file = self._find_type_definition_file(
+                                            type_qualified_name, current_file_path
                                         )
                                         if (
                                             param_dep_file
                                             and param_dep_file != current_file_path
-                                            and self._is_in_project_headers(
-                                                param_dep_file
-                                            )
+                                            and self._is_in_project_headers(param_dep_file)
                                         ):
-                                            self.strong_dependencies[
-                                                current_file_path
-                                            ].add(param_dep_file)
+                                            self.strong_dependencies[current_file_path].add(param_dep_file)
                                             print(
                                                 f"    Function parameter dependency: {os.path.basename(current_file_path)} -> {os.path.basename(param_dep_file)} (param {arg_cursor.spelling}: {type_qualified_name})"
                                             )
@@ -396,13 +352,9 @@ class Sorter:
                             continue
 
                         if is_strong_dependency:
-                            self.strong_dependencies[current_file_path].add(
-                                dependency_file
-                            )
+                            self.strong_dependencies[current_file_path].add(dependency_file)
                         else:
-                            self.weak_dependencies[current_file_path].add(
-                                dependency_file
-                            )
+                            self.weak_dependencies[current_file_path].add(dependency_file)
 
                 except Exception:
                     continue
@@ -415,19 +367,20 @@ class Sorter:
         print("Building dependency graph...")
 
         print("\nPhase 1: Collecting type definitions...")
+        tus = {}
         for header_file in self.header_files:
             print(f"  Analyzing {os.path.basename(header_file)}...")
             try:
-                tu = index.parse(
+                tus[header_file] = index.parse(
                     header_file,
                     args=self.clang_args,
                     options=cindex.TranslationUnit.PARSE_DETAILED_PROCESSING_RECORD,
                 )
-                if not tu:
+                if not tus[header_file]:
                     print(f"Warning: Failed to parse {header_file}", file=sys.stderr)
                     continue
 
-                self._collect_type_definitions(tu)
+                self._collect_type_definitions(tus[header_file])
 
             except Exception as e:
                 print(f"Error while parsing {header_file}: {e}", file=sys.stderr)
@@ -436,16 +389,11 @@ class Sorter:
         for header_file in self.header_files:
             print(f"  Processing dependencies for {os.path.basename(header_file)}...")
             try:
-                tu = index.parse(
-                    header_file,
-                    args=self.clang_args,
-                    options=cindex.TranslationUnit.PARSE_DETAILED_PROCESSING_RECORD,
-                )
-                if not tu:
+                if not tus[header_file]:
                     continue
 
                 has_errors = False
-                for diag in tu.diagnostics:
+                for diag in tus[header_file].diagnostics:
                     if diag.severity >= cindex.Diagnostic.Error:
                         if "incomplete type" not in diag.spelling.lower():
                             print(
@@ -460,14 +408,12 @@ class Sorter:
                     )
                     continue
 
-                self._analyze_dependencies(tu)
+                self._analyze_dependencies(tus[header_file])
 
             except Exception as e:
                 print(f"Error while processing {header_file}: {e}", file=sys.stderr)
 
-        print(
-            "\nPhase 3: Building final dependency graph (strong dependencies only, self-references filtered)..."
-        )
+        print("\nPhase 3: Building final dependency graph (strong dependencies only, self-references filtered)...")
         for header_file in self.header_files:
             strong_deps = self.strong_dependencies[header_file]
             for dep_file in strong_deps:
@@ -483,14 +429,10 @@ class Sorter:
             print("Self-reference summary:")
             for header_file, count in self.self_references.items():
                 if count > 0:
-                    print(
-                        f"  {os.path.basename(header_file)}: {count} self-references filtered"
-                    )
+                    print(f"  {os.path.basename(header_file)}: {count} self-references filtered")
             print()
 
-        print(
-            "Final dependency relationships (strong dependencies only, self-references excluded):"
-        )
+        print("Final dependency relationships (strong dependencies only, self-references excluded):")
         for header_file in self.header_files:
             strong_deps = self.strong_dependencies[header_file] - {header_file}
             weak_deps = self.weak_dependencies[header_file] - {header_file}
@@ -501,19 +443,13 @@ class Sorter:
                     print(f"    - {os.path.basename(dep)}")
 
             if weak_deps:
-                print(
-                    f"  {os.path.basename(header_file)} weakly depends on (forward declarations):"
-                )
+                print(f"  {os.path.basename(header_file)} weakly depends on (forward declarations):")
                 for dep in weak_deps:
                     print(f"    - {os.path.basename(dep)}")
 
     def sort(self):
-        print(
-            "\nPerforming topological sort (based on strong dependencies only, self-references excluded)..."
-        )
-        in_degree = {
-            node: len(self.dependency_graph[node]) for node in self.header_files
-        }
+        print("\nPerforming topological sort (based on strong dependencies only, self-references excluded)...")
+        in_degree = {node: len(self.dependency_graph[node]) for node in self.header_files}
         queue = deque([node for node, degree in in_degree.items() if degree == 0])
         sorted_list = []
 

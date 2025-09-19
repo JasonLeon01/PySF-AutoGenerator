@@ -13,6 +13,16 @@ void bind_MatrixT(py::module &m_sf, const std::string& name) {
     v_sfMatrix.def_readwrite("array", &sf::priv::Matrix<N, N>::array);
     v_sfMatrix.def_static("copyMatrix", [](sf::Transform& source, sf::priv::Matrix<N, N>& dest) { return sf::priv::copyMatrix(source, dest); }, py::arg("source"), py::arg("dest"));
     v_sfMatrix.def("__hash__", [](sf::priv::Matrix<N, N>& self) { std::size_t seed = 0; for (int i = 0; i < N * N; ++i) hash_combine(seed, self.array[i]); return seed; });
+    v_sfMatrix.def("__repr__", [](sf::priv::Matrix<N, N>& self) {
+        std::stringstream ss;
+        ss << "Matrix" << N << "(";
+        for (int i = 0; i < N * N; ++i) {
+            ss << self.array[i];
+            if (i < N * N - 1) ss << ", ";
+        }
+        ss << ")";
+        return ss.str();
+    });
     add_copy_support(v_sfMatrix);
 }
 

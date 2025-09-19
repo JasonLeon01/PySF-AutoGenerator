@@ -29,6 +29,7 @@ SPECIFIC_TYPE = {
     "short*": ["std::vector<short>&", "DATA.data()"],
     "int*": ["std::vector<int>&", "DATA.data()"],
     "float*": ["std::vector<float>&", "DATA.data()"],
+    "sf::Vertex*": ["std::vector<sf::Vertex>&", "DATA.data()"],
     "unsigned char*": ["std::vector<std::uint8_t>&", "DATA.data()"],
     "std::function<": ["py::function", "wrap_effect_processor(DATA)"],
     "char*": ["std::string&", "DATA.data()"],
@@ -67,6 +68,7 @@ hpp_excludes = {
         "SoundFileFactory.hpp",
     ],
     "Graphics": [
+        "Drawable.hpp",
         "Export.hpp",
         "Glsl.hpp",
         "Rect.hpp",
@@ -110,12 +112,8 @@ if __name__ == "__main__":
                 print(f"Skipping {hpp_file}")
                 continue
             print(f"Processing {hpp_file}")
-            read_file = os.path.join(
-                project_root, hpp_root, repo_root, folder, hpp_file
-            )
-            output_file = os.path.join(
-                project_root, output_cpp, f"bind_{hpp_file.split('.')[0]}.cpp"
-            )
+            read_file = os.path.join(project_root, hpp_root, repo_root, folder, hpp_file)
+            output_file = os.path.join(project_root, output_cpp, f"bind_{hpp_file.split('.')[0]}.cpp")
             PybindGen.generate_binding_from_hpp(
                 common_module_name,
                 hpp_root,
@@ -147,9 +145,7 @@ if __name__ == "__main__":
                 print(f"Skipping {hpp_file}")
                 continue
 
-            headers_to_sort.append(
-                os.path.join(project_root, hpp_root, repo_root, folder, hpp_file)
-            )
+            headers_to_sort.append(os.path.join(project_root, hpp_root, repo_root, folder, hpp_file))
 
     if not headers_to_sort:
         print("No header files found to sort. Exiting.")
@@ -161,9 +157,7 @@ if __name__ == "__main__":
         sorter.build_graph()
         for node, deps in sorter.dependency_graph.items():
             if deps:
-                print(
-                    f"  {os.path.basename(node)} -> {[os.path.basename(d) for d in deps]}"
-                )
+                print(f"  {os.path.basename(node)} -> {[os.path.basename(d) for d in deps]}")
         sorted_files = sorter.sort()
 
     except (RuntimeError, cindex.LibclangError) as e:
