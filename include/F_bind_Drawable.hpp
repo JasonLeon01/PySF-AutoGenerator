@@ -7,8 +7,6 @@
 namespace py = pybind11;
 
 struct PyDrawable : sf::Drawable {
-    using sf::Drawable::Drawable;
-
     void draw(sf::RenderTarget &target, sf::RenderStates states) const override;
 };
 
