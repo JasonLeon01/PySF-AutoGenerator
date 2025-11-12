@@ -156,7 +156,10 @@ class Parser:
 
     def _get_return_type(self, node):
         if hasattr(node, "result_type"):
-            return node.result_type.spelling
+            try:
+                return node.result_type.get_canonical().spelling
+            except Exception:
+                return node.result_type.spelling
         return ""
 
     def _get_base_classes(self, node):
@@ -309,6 +312,13 @@ class Parser:
                 node_dict["static"] = node.is_static_method()
             elif hasattr(node, "is_static"):
                 node_dict["static"] = node.is_static()
+
+            if node.kind == clang.cindex.CursorKind.CXX_METHOD:
+                try:
+                    if hasattr(node, "is_const_method"):
+                        node_dict["is_const"] = node.is_const_method()
+                except Exception:
+                    pass
 
         children = []
         for c in node.get_children():
