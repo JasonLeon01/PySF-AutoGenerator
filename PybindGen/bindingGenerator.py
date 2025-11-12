@@ -22,7 +22,7 @@ BINARY_OPERATOR_MAP = {
     "operator*": "__mul__",
     "operator/": "__truediv__",
     "operator%": "__mod__",
-    "operator[]": "__getitem__",
+    "operator[]": ("__getitem__", "__setitem__"),
     "operator()": "__call__",
     "operator+=": "__iadd__",
     "operator-=": "__isub__",
@@ -95,6 +95,9 @@ class Generator:
             tmp_f.flush()
             tmp_f.seek(0)
             lines = tmp_f.readlines()
+
+        seen = set()
+        lines = [line for line in lines if not (line in seen or seen.add(line))]
 
         auto_lines = [line for line in lines if line.strip().startswith("auto ")]
         other_lines = [line for line in lines if not line.strip().startswith("auto ")]
@@ -378,7 +381,7 @@ class Generator:
                 arg2 = arg2_name
 
             if op == "[]":
-                return f"return &self[{arg2}];"
+                return (f"return &self[{arg2}];", f"self[{arg2}] = v;")
             elif op == "()":
                 call_args = self._get_forward_call_arguments(params[1:])
                 return f"return self({call_args});"
@@ -463,9 +466,6 @@ class Generator:
             f.write(
                 f'{indent}auto {class_var} = py::class_<{full_class_name}{holder_str}>({module_var}, "{class_name}");\n'
             )
-
-        emitted_getitem = False
-        emitted_setitem = False
 
         if not is_abstract:
             has_constructor = any(c["kind"] == "CONSTRUCTOR" for c in cls.get("children", []))
@@ -570,6 +570,7 @@ class Generator:
                 params = c.get("parameters", [])
                 py_args_str = self._generate_py_args_string(params)
                 return_type = c.get("return_type", "void")
+                full_return_type = c.get("full_return_type", return_type)
 
                 if name in IGNORE_LIST:
                     print(f"Ignoring method in IGNORE_LIST: {full_class_name}::{name}")
@@ -582,54 +583,26 @@ class Generator:
                     pyname = UNARY_OPERATOR_MAP[name]
                     op = name[len("operator") :]
                     lambda_body = self._cpp_operator_lambda_code(op, [{"name": "self"}])
-                    self_decl = f"const {full_class_name}& self" if c.get("is_const") else f"{full_class_name}& self"
-                    f.write(f'{indent}{class_var}.def("{pyname}", []({self_decl}) {{ {lambda_body} }});\n')
+                    f.write(f'{indent}{class_var}.def("{pyname}", []({full_class_name}& self) {{ {lambda_body} }});\n')
                 elif is_binary:
                     pyname = BINARY_OPERATOR_MAP[name]
                     op = name[len("operator") :]
-                    if op == "[]":
-                        self_decl = f"{full_class_name}& self"
-                    else:
-                        self_decl = (
-                            f"const {full_class_name}& self" if c.get("is_const") else f"{full_class_name}& self"
-                        )
-                    all_args = f"{self_decl}, {self._lambda_argument_string(params)}" if params else f"{self_decl}"
+                    all_args = (
+                        f"{full_class_name}& self, {self._lambda_argument_string(params)}"
+                        if params
+                        else f"{full_class_name}& self"
+                    )
                     lambda_body = self._cpp_operator_lambda_code(op, [{"name": "self"}, *params])
-                    if op == "[]":
-                        if not emitted_getitem:
-                            f.write(
-                                f'{indent}{class_var}.def("{pyname}", []({all_args}) {{ {lambda_body} }}, py::return_value_policy::reference_internal{py_args_str});\n'
-                            )
-                            emitted_getitem = True
-
-                        if not emitted_setitem and not c.get("is_const", False):
-                            idx_decl = self._lambda_argument_string([params[0]]) if params else ""
-                            ret_type = c.get("return_type", "void")
-                            specific_replacement = self._get_specific_type_replacement(ret_type)
-                            if specific_replacement:
-                                set_type, call_expr_template = specific_replacement
-                                value_decl = f"{set_type} value"
-                                rhs_expr = call_expr_template.replace("DATA", "value")
-                            else:
-                                replacement = self._find_replace_type(ret_type)
-                                base_type = replacement if replacement else self._canonical_type(ret_type)
-                                value_decl = f"{base_type} value"
-                                rhs_expr = "value"
-
-                            all_args_set = (
-                                f"{self_decl}, {idx_decl}, {value_decl}" if idx_decl else f"{self_decl}, {value_decl}"
-                            )
-                            set_params = [params[0]] if params else []
-                            set_params.append(
-                                {"name": "value", "type": ret_type, "raw_type": None, "default_value": None}
-                            )
-                            py_args_set = self._generate_py_args_string(set_params)
-                            index_name = params[0]["name"] if params else "index"
-                            lambda_body_set = f"self[{index_name}] = {rhs_expr};"
-                            f.write(
-                                f'{indent}{class_var}.def("__setitem__", []({all_args_set}) {{ {lambda_body_set} }}{py_args_set});\n'
-                            )
-                            emitted_setitem = True
+                    if name == "operator[]":
+                        pyname1, pyname2 = pyname
+                        lambda_body1, lambda_body2 = lambda_body
+                        f.write(
+                            f'{indent}{class_var}.def("{pyname1}", []({all_args}) {{ {lambda_body1} }}{py_args_str}, py::return_value_policy::reference_internal);\n'
+                        )
+                        set_item_type = full_return_type.replace("const ", "")
+                        f.write(
+                            f'{indent}{class_var}.def("{pyname2}", []({all_args}, const {set_item_type} v) {{ {lambda_body2} }}{py_args_str}, py::arg("v"));\n'
+                        )
                     else:
                         f.write(
                             f'{indent}{class_var}.def("{pyname}", []({all_args}) {{ {lambda_body} }}{py_args_str});\n'
@@ -645,10 +618,7 @@ class Generator:
                             f'{indent}{class_var}.def_static("{pyname}", []({def_args}) {{ return {callcode}; }}{py_args_str});\n'
                         )
                     else:
-                        self_decl = (
-                            f"const {full_class_name}& self" if c.get("is_const") else f"{full_class_name}& self"
-                        )
-                        all_args = f"{self_decl}, {def_args}" if def_args else f"{self_decl}"
+                        all_args = f"{full_class_name}& self, {def_args}" if def_args else f"{full_class_name}& self"
                         return_sample = self._check_specific_return_type(return_type)
                         if return_sample:
                             callcode = return_sample[0].replace("DATA", callcode)
