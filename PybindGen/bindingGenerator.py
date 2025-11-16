@@ -475,11 +475,14 @@ class Generator:
             need_unique = False
             no_copy_constructor = False
             no_move_constructor = True
+            has_public_copy_ctor = False
             for c in cls.get("children", []):
                 if c["kind"] == "CONSTRUCTOR" and c.get("access") == "public":
                     if c.get("is_copy_constructor", False) and c.get("deleted", False):
                         print(f"Detected deleted copy constructor: {full_class_name}::{c['displayname']}")
                         no_copy_constructor = True
+                    if c.get("is_copy_constructor", False) and not c.get("deleted", False):
+                        has_public_copy_ctor = True
                     if c.get("is_move_constructor", False) and not c.get("deleted", False):
                         print(f"Detected non-deleted move constructor: {full_class_name}::{c['displayname']}")
                         no_move_constructor = False
@@ -536,6 +539,14 @@ class Generator:
                         else:
                             def_args = self._lambda_argument_string_for_default_constructor(params)
                             f.write(f"{indent}{class_var}.def(py::init<{def_args}>(){py_args_str});\n")
+
+            if has_public_copy_ctor:
+                f.write(
+                    f'{indent}{class_var}.def("__copy__", [](const {full_class_name}& self) {{ return {full_class_name}(self); }});\n'
+                )
+                f.write(
+                    f'{indent}{class_var}.def("__deepcopy__", [](const {full_class_name}& self, py::dict memo) {{ (void)memo; return {full_class_name}(self); }});\n'
+                )
 
         for c in cls.get("children", []):
             if c["kind"] == "VAR_DECL" and c.get("readonly") and c.get("access") == "public":

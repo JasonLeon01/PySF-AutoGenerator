@@ -61,6 +61,10 @@ Then, run `ProjCMake.sh` to start CMake process.
 - Make sure Python 3.10.0 is accessible via the `py -3.10` command
 - LLVM must be properly configured in your system PATH
 
+## Known Limitations
+- Clang/LLVM compile checks currently fail due to attempts to bind rvalues to `sf::String&` (non-const reference), resulting in errors such as `invalid operands to binary expression`. The current auto-generated binding code includes such cases and requires adjustments.
+- Visual Studio 2026 (`VS2026`) is currently not supported for CMake builds.
+
 ## Troubleshooting
 - If you encounter CMake version issues, ensure you're using a version less than 4.0
 - Verify that LLVM is correctly installed and accessible
