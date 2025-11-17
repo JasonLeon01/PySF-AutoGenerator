@@ -83,3 +83,15 @@ Then, run `ProjCMake.sh` to start CMake process.
     from clang.cindex import Config
     Config.set_library_file(r"C:\Program Files\LLVM\bin\libclang.dll")
     ```
+
+## Licensing and Acknowledgements
+This project, PySFML-AutoGenerator, is licensed under the MIT License.
+
+### Acknowledgements
+This project is built upon the excellent work of the following libraries, and we comply with their respective licensing terms:
+
+- SFML (Simple and Fast Multimedia Library): Used as the core graphical library. SFML is distributed under the highly permissive Zlib License.
+
+- pybind11: Used for automatic C++ to Python binding generation. pybind11 is distributed under the BSD 3-Clause License.
+
+For the complete text of all third-party licenses and required notices, please see [THIRD-PARTY.txt](THIRD-PARTY.txt) in this repository.
