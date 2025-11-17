@@ -1,0 +1,2 @@
+    v_sfBlendMode.def("__copy__", [](const sf::BlendMode& self) { return sf::BlendMode(self); });
+    v_sfBlendMode.def("__deepcopy__", [](const sf::BlendMode& self, py::dict) { return sf::BlendMode(self); }, py::arg("memo"));

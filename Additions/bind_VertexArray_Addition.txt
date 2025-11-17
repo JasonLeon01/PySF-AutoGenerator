@@ -1,0 +1,2 @@
+    v_sfVertexArray.def("__copy__", [](const sf::VertexArray& self) { return sf::VertexArray(self); });
+    v_sfVertexArray.def("__deepcopy__", [](const sf::VertexArray& self, py::dict) { return sf::VertexArray(self); }, py::arg("memo"));

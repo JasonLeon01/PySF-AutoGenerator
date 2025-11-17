@@ -1,0 +1,2 @@
+    v_sfStencilValue.def("__copy__", [](const sf::StencilMode& self) { return sf::StencilMode(self); });
+    v_sfStencilValue.def("__deepcopy__", [](const sf::StencilMode& self, py::dict) { return sf::StencilMode(self); }, py::arg("memo"));

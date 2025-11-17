@@ -1,0 +1,2 @@
+    v_sfVideoMode.def("__copy__", [](const sf::VideoMode& self) { return sf::VideoMode(self); });
+    v_sfVideoMode.def("__deepcopy__", [](const sf::VideoMode& self, py::dict) { return sf::VideoMode(self); }, py::arg("memo"));

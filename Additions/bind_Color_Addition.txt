@@ -1,3 +1,5 @@
+    v_sfColor.def("__copy__", [](const sf::Color& self) { return sf::Color(self); });
+    v_sfColor.def("__deepcopy__", [](const sf::Color& self, py::dict) { return sf::Color(self); }, py::arg("memo"));
     v_sfColor.attr("Black") = sf::Color::Black;
     v_sfColor.attr("White") = sf::Color::White;
     v_sfColor.attr("Red") = sf::Color::Red;

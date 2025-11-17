@@ -1,0 +1,2 @@
+    v_sfImage.def("__copy__", [](const sf::Image& self) { return sf::Image(self); });
+    v_sfImage.def("__deepcopy__", [](const sf::Image& self, py::dict) { return sf::Image(self); }, py::arg("memo"));

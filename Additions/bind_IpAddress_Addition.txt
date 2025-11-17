@@ -1,0 +1,2 @@
+    v_sfIpAddress.def("__copy__", [](const sf::IpAddress& self) { return sf::IpAddress(self); });
+    v_sfIpAddress.def("__deepcopy__", [](const sf::IpAddress& self, py::dict) { return sf::IpAddress(self); }, py::arg("memo"));

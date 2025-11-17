@@ -1,0 +1,2 @@
+    v_sfView.def("__copy__", [](const sf::View& self) { return sf::View(self); });
+    v_sfView.def("__deepcopy__", [](const sf::View& self, py::dict) { return sf::View(self); }, py::arg("memo"));

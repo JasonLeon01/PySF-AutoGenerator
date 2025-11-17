@@ -1,0 +1,2 @@
+    v_sfContextSettings.def("__copy__", [](const sf::ContextSettings& self) { return sf::ContextSettings(self); });
+    v_sfContextSettings.def("__deepcopy__", [](const sf::ContextSettings& self, py::dict) { return sf::ContextSettings(self); }, py::arg("memo"));

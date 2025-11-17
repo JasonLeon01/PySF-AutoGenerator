@@ -1,0 +1,2 @@
+    v_sfRenderStates.def("__copy__", [](const sf::RenderStates& self) { return sf::RenderStates(self); });
+    v_sfRenderStates.def("__deepcopy__", [](const sf::RenderStates& self, py::dict) { return sf::RenderStates(self); }, py::arg("memo"));

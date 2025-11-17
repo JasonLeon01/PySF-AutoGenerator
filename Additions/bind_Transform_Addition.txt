@@ -1,1 +1,3 @@
+    v_sfTransform.def("__copy__", [](const sf::Transform& self) { return sf::Transform(self); });
+    v_sfTransform.def("__deepcopy__", [](const sf::Transform& self, py::dict) { return sf::Transform(self); }, py::arg("memo"));
     v_sfTransform.attr("Identity") = sf::Transform::Identity;
