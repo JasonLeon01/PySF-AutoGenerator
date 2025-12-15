@@ -54,3 +54,9 @@ void hash_combine(std::size_t& seed, const T& val) {
     std::hash<T> hasher;
     seed ^= hasher(val) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
 }
+
+sf::WindowHandle handleToSFMLHandle(uintptr_t qtWinId);
+
+#ifdef __APPLE__
+sf::WindowHandle handleToSFMLHandle_mac(uintptr_t qtWinId);
+#endif

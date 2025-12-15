@@ -36,11 +36,11 @@ SPECIFIC_TYPE = {
     "wchar_t*": ["std::wstring&", "DATA.data()"],
     ("HWND__*", "WindowHandle"): [
         "uintptr_t",
-        "reinterpret_cast<sf::WindowHandle>(DATA)",
+        "handleToSFMLHandle(DATA)",
     ],
     ("void*", "WindowHandle"): [
         "uintptr_t",
-        "reinterpret_cast<sf::WindowHandle>(DATA)",
+        "handleToSFMLHandle(DATA)",
     ],
 }
 IGNORE_TYPE = ["VkInstance_T*", "std::locale", "char32_t*"]

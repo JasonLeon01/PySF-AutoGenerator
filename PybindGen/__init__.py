@@ -1,5 +1,7 @@
+import os
 from pathlib import Path
 from ctypes.util import find_library
+import platform
 import clang.cindex
 from . import hppParser
 from . import bindingGenerator
@@ -110,6 +112,8 @@ def generate_cmakelists(source_files, self_files, python_version):
             f.write(f"set(CMAKE_CXX_STANDARD 17)\n")
             f.write(f"set(CMAKE_CXX_STANDARD_REQUIRED ON)\n")
             f.write(f'project ("pysf")\n')
+            if platform.system() == "Darwin":
+                f.write(f"enable_language(OBJCXX)\n")
             f.write(f"set(SFML_DIR ${{CMAKE_SOURCE_DIR}}/SFML)\n")
             f.write(f"set(PYBIND11_DIR ${{CMAKE_SOURCE_DIR}}/pybind11)\n")
             f.write(
@@ -161,6 +165,8 @@ def generate_cmakelists(source_files, self_files, python_version):
                         break
                 if flag:
                     f.write(f'    "src/{filename.split(".")[0]}.cpp"\n')
+                    if platform.system() == "Darwin" and os.path.exists(f'src/{filename.split(".")[0]}.mm'):
+                        f.write(f'    "src/{filename.split(".")[0]}.mm"\n')
                 else:
                     f.write(f'    "output/src/{filename.split(".")[0]}.cpp"\n')
 
