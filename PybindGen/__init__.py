@@ -1,4 +1,5 @@
-import string
+import os
+import platform
 from pathlib import Path
 from ctypes.util import find_library
 import clang.cindex
@@ -113,6 +114,8 @@ def generate_cmakelists(source_files, self_files, python_version):
                     break
             if flag:
                 sources += f'    "src/{filename.split(".")[0]}.cpp"\n'
+                if platform.system() == "Darwin" and os.path.exists(f'src/{filename.split(".")[0]}.mm'):
+                    sources += f'    "src/{filename.split(".")[0]}.mm"\n'
             else:
                 sources += f'    "output/src/{filename.split(".")[0]}.cpp"\n'
 
