@@ -10,6 +10,7 @@ namespace py = pybind11;
 template <typename T>
 void bind_VectorTCommon(py::class_<T>& v_sfVector) {
     v_sfVector.def(py::init<>());
+    v_sfVector.def("asCapsule", [](T& self) { return py::capsule(&self, typeid(T).name()); }, py::return_value_policy::reference_internal);
     v_sfVector.def("lengthSquared", [](T& self) { return self.lengthSquared(); });
     v_sfVector.def("dot", [](T& self, T rhs) { return self.dot(rhs); }, py::arg("rhs"));
     v_sfVector.def("cross", [](T& self, T rhs) { return self.cross(rhs); }, py::arg("rhs"));

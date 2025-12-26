@@ -548,6 +548,10 @@ class Generator:
                     f'{indent}{class_var}.def("__deepcopy__", [](const {full_class_name}& self, py::dict memo) {{ (void)memo; return {full_class_name}(self); }});\n'
                 )
 
+        f.write(
+            f'{indent}{class_var}.def("asCapsule", []({full_class_name}& self) {{ return py::capsule(&self, typeid({full_class_name}).name()); }}, py::return_value_policy::reference_internal);\n'
+        )
+
         for c in cls.get("children", []):
             if c["kind"] == "VAR_DECL" and c.get("readonly") and c.get("access") == "public":
                 var_name = c["name"]

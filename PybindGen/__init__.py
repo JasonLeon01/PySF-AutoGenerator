@@ -1,7 +1,6 @@
-import os
+import string
 from pathlib import Path
 from ctypes.util import find_library
-import platform
 import clang.cindex
 from . import hppParser
 from . import bindingGenerator
@@ -84,9 +83,7 @@ def generate_pybind_main(common_module_name, source_files, output_filename):
 
             f.write("PYBIND11_MODULE(pysf, m) {\n")
             f.write('    m.doc() = "SFML Library";\n\n')
-            f.write(
-                f'    auto m_{common_module_name} = m.def_submodule("{common_module_name}");\n'
-            )
+            f.write(f'    auto m_{common_module_name} = m.def_submodule("{common_module_name}");\n')
 
             for filename in source_files:
                 if not "bind_" in filename:
@@ -107,109 +104,21 @@ def generate_pybind_main(common_module_name, source_files, output_filename):
 def generate_cmakelists(source_files, self_files, python_version):
     output_filename = "CMakeLists.txt"
     try:
-        with open(output_filename, "w", encoding="utf-8") as f:
-            f.write(f"cmake_minimum_required(VERSION 3.8...3.27)\n")
-            f.write(f"set(CMAKE_CXX_STANDARD 17)\n")
-            f.write(f"set(CMAKE_CXX_STANDARD_REQUIRED ON)\n")
-            f.write(f'project ("pysf")\n')
-            if platform.system() == "Darwin":
-                f.write(f"enable_language(OBJCXX)\n")
-            f.write(f"set(SFML_DIR ${{CMAKE_SOURCE_DIR}}/SFML)\n")
-            f.write(f"set(PYBIND11_DIR ${{CMAKE_SOURCE_DIR}}/pybind11)\n")
-            f.write(
-                f"find_package(Python3 {python_version} EXACT REQUIRED COMPONENTS Interpreter Development)\n"
-            )
-            f.write(f"if(NOT Python3_FOUND)\n")
-            f.write(f'    message(FATAL_ERROR "Python {python_version} not found")\n')
-            f.write(f"endif()\n")
-            f.write(
-                f'get_filename_component(PYTHON_DIR "${{Python3_EXECUTABLE}}" DIRECTORY)\n'
-            )
-            f.write(f'message(STATUS "Python Dir: ${{PYTHON_DIR}}")\n')
-            f.write(
-                f'message(STATUS "Python include dirs: ${{Python3_INCLUDE_DIRS}}")\n'
-            )
-            f.write(f'message(STATUS "Python libraries: ${{Python3_LIBRARIES}}")\n')
-            f.write(f"add_subdirectory(${{SFML_DIR}})\n")
-            f.write(f'if (CMAKE_SYSTEM_NAME STREQUAL "Windows")\n')
-            f.write(f'    if (CMAKE_CXX_COMPILER_ID STREQUAL "GNU")\n')
-            f.write(f"        include_directories(${{SFML_DIR}}/include)\n")
-            f.write(f"        link_directories(${{PYTHON_DIR}}/libs)\n")
-            f.write(f"    endif()\n")
-            f.write(f'    set(TARGET_SUFFIX ".pyd")\n')
-            f.write(f'elseif (CMAKE_SYSTEM_NAME STREQUAL "Darwin")\n')
-            f.write(f"    set(FETCHCONTENT_QUIET OFF)\n")
-            f.write(f'    set(TARGET_SUFFIX ".so")\n')
-            f.write(f"else()\n")
-            f.write(
-                f'    message(FATAL_ERROR "Unsupported platform: ${{CMAKE_SYSTEM_NAME}}")\n'
-            )
-            f.write(f"endif()\n")
-            f.write(f"add_subdirectory(${{PYBIND11_DIR}})\n")
-            f.write(f"include_directories(${{PYTHON_DIR}}/include)\n")
-            f.write(f"include_directories(${{CMAKE_SOURCE_DIR}}/include)\n")
-            f.write(f"include_directories(${{CMAKE_SOURCE_DIR}}/output/include)\n")
-            f.write(f"set(CMAKE_BUILD_TYPE Release)\n")
-            f.write(f'if (CMAKE_SYSTEM_NAME STREQUAL "Windows" AND MSVC)\n')
-            f.write(f'    set(CMAKE_CXX_FLAGS_RELEASE "/O2 /DNDEBUG")\n')
-            f.write(f"else()\n")
-            f.write(f'    set(CMAKE_CXX_FLAGS_RELEASE "-O3 -DNDEBUG -flto")\n')
-            f.write(f"endif()\n")
-            f.write(f"add_library(pysf SHARED\n")
+        sources = ""
+        for filename in source_files:
+            flag = False
+            for self_file in self_files:
+                if filename in self_file:
+                    flag = True
+                    break
+            if flag:
+                sources += f'    "src/{filename.split(".")[0]}.cpp"\n'
+            else:
+                sources += f'    "output/src/{filename.split(".")[0]}.cpp"\n'
 
-            for filename in source_files:
-                flag = False
-                for self_file in self_files:
-                    if filename in self_file:
-                        flag = True
-                        break
-                if flag:
-                    f.write(f'    "src/{filename.split(".")[0]}.cpp"\n')
-                    if platform.system() == "Darwin" and os.path.exists(f'src/{filename.split(".")[0]}.mm'):
-                        f.write(f'    "src/{filename.split(".")[0]}.mm"\n')
-                else:
-                    f.write(f'    "output/src/{filename.split(".")[0]}.cpp"\n')
-
-            f.write(f'    "output/main.cpp"\n')
-            f.write(f")\n")
-
-            f.write(f"set_target_properties(pysf PROPERTIES\n")
-            f.write(f'    PREFIX ""\n')
-            f.write(f"    SUFFIX ${{TARGET_SUFFIX}}\n")
-            f.write(f"    LIBRARY_OUTPUT_DIRECTORY ${{CMAKE_BINARY_DIR}}/bin\n")
-            f.write(f")\n")
-            f.write(f'if(CMAKE_SYSTEM_NAME STREQUAL "Darwin")\n')
-            f.write(f"    set_target_properties(pysf PROPERTIES\n")
-            f.write(f'        INSTALL_RPATH "@loader_path"\n')
-            f.write(f"        BUILD_WITH_INSTALL_RPATH TRUE\n")
-            f.write(f"        MACOSX_RPATH TRUE\n")
-            f.write(f"    )\n")
-            f.write(f"endif()\n")
-            f.write(f"target_link_libraries(pysf PRIVATE\n")
-            f.write(f"    sfml-system\n")
-            f.write(f"    sfml-window\n")
-            f.write(f"    sfml-graphics\n")
-            f.write(f"    sfml-audio\n")
-            f.write(f"    sfml-network\n")
-            f.write(f"    Python3::Python\n")
-            f.write(f"    pybind11::module\n")
-            f.write(f")\n")
-            f.write(f'if(CMAKE_SYSTEM_NAME STREQUAL "Windows")\n')
-            f.write(f'    if (CMAKE_CXX_COMPILER_ID STREQUAL "GNU")\n')
-            f.write(f"        target_link_libraries(pysf PRIVATE\n")
-            f.write(f"            -Wl,-rpath=${{PYTHON_DIR}}/libs\n")
-            f.write(f"        )\n")
-            f.write(f"        add_custom_command(TARGET pysf POST_BUILD\n")
-            f.write(
-                f"            COMMAND ${{CMAKE_STRIP}} --strip-all $<TARGET_FILE:pysf>\n"
-            )
-            f.write(f"        )\n")
-            f.write(f"    endif()\n")
-            f.write(f'elseif(CMAKE_SYSTEM_NAME STREQUAL "Darwin")\n')
-            f.write(f"    add_custom_command(TARGET pysf POST_BUILD\n")
-            f.write(f"        COMMAND ${{CMAKE_STRIP}} -x $<TARGET_FILE:pysf>\n")
-            f.write(f"    )\n")
-            f.write(f"endif()\n")
+        with open(f"{output_filename}.in") as template, open(output_filename, "w") as out:
+            cmake_content = template.read().format(sources=sources, python_version=python_version)
+            out.write(cmake_content)
 
         print(f"CMakeLists.txt generated successfully: {output_filename}")
 
