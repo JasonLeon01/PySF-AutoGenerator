@@ -20,9 +20,9 @@ fi
 
 cd ..
 
-py -3.10 pyFilesGen.py
+python3.10 pyFilesGen.py
 if [ $? -ne 0 ]; then
-    echo "py -3.10 pyFilesGen.py Failed to generate python files"
+    echo "python3.10 pyFilesGen.py Failed to generate python files"
     exit 1
 fi
 
@@ -35,7 +35,7 @@ if [ $? -ne 0 ]; then
     exit 1
 fi
 
-py -3.10 -m pybind11_stubgen --output-dir=. pysf
+python3.10 -m pybind11_stubgen --output-dir=. pysf
 if [ $? -ne 0 ]; then
     echo "pybind11_stubgen failed, exiting..."
     exit 1

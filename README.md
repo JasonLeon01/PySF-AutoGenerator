@@ -11,9 +11,15 @@ This project automatically generates PyBind11 binding files for SFML 3.0.1, enab
 
 ### Python Dependencies
 Install the required Python packages:
-```bash
-py -3.10 -m pip install clang pybind11-stubgen
-```
+
+- On Windows
+    ```bash
+    py -3.10 -m pip install clang pybind11-stubgen
+    ```
+- On macOS
+    ```bash
+    pip3 install clang pybind11-stubgen
+    ```
 
 ## Setup Instructions
 
