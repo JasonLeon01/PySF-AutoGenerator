@@ -1,8 +1,8 @@
 @echo off
 
-python parse.py
+py -3.10 parse.py
 if %errorlevel% neq 0 (
-    echo python parse.py Failed to parse the code
+    echo py -3.10 parse.py Failed to parse the code
     exit /b
 )
 
@@ -24,9 +24,9 @@ if %errorlevel% neq 0 (
 
 cd ..
 
-python pyFilesGen.py
+py -3.10 pyFilesGen.py
 if %errorlevel% neq 0 (
-    echo python pyFilesGen.py Failed to generate python files
+    echo py -3.10 pyFilesGen.py Failed to generate python files
     exit /b
 )
 
@@ -44,7 +44,7 @@ if %errorlevel% neq 0 (
     exit /b
 )
 
-python -m pybind11_stubgen --output-dir=. pysf
+py -3.10 -m pybind11_stubgen --output-dir=. pysf
 IF %ERRORLEVEL% NEQ 0 (
     echo pybind11_stubgen failed, exiting...
     exit /b %ERRORLEVEL%
