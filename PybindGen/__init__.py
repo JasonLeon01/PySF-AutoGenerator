@@ -99,7 +99,7 @@ def generate_pybind_main(common_module_name, source_files, output_filename):
     except IOError as e:
         print(f"Error writing to {output_filename}: {e}")
     except Exception as e:
-        print(f"An unexpected error occurred: {e}")
+        print(f"An unexpected error occurred when generating {output_filename}: {e}")
 
 
 def generate_cmakelists(source_files, self_files, python_version):
@@ -128,4 +128,4 @@ def generate_cmakelists(source_files, self_files, python_version):
     except IOError as e:
         print(f"Error writing to {output_filename}: {e}")
     except Exception as e:
-        print(f"An unexpected error occurred: {e}")
+        print(f"An unexpected error occurred when generating {output_filename}: {e}")

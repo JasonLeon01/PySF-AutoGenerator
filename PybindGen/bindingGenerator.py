@@ -549,7 +549,7 @@ class Generator:
                 )
 
         f.write(
-            f'{indent}{class_var}.def("asCapsule", []({full_class_name}& self) {{ return py::capsule(&self, typeid({full_class_name}).name()); }}, py::return_value_policy::reference_internal);\n'
+            f'{indent}{class_var}.def("getPtr", []({full_class_name}& self) {{ return reinterpret_cast<uintptr_t>(&self); }});\n'
         )
 
         for c in cls.get("children", []):
