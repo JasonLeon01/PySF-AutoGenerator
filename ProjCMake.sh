@@ -4,6 +4,11 @@ if [ -d build ]; then
     rm -rf build
 fi
 mkdir build
+if [ -d result ]; then
+    rm -rf result
+fi
+mkdir result/pysf
+mkdir result/lib
 cd build
 
 cmake -DCMAKE_POLICY_VERSION_MINIMUM=3.5 -DCMAKE_BUILD_TYPE=Release .. --trace-expand
@@ -18,6 +23,24 @@ if [ $? -ne 0 ]; then
     exit 1
 fi
 
+cp bin/pysf.so ../../result/pysf/
+if [ $? -ne 0 ]; then
+    echo "Failed to copy pysf.so, exiting..."
+    exit 1
+fi
+
+cp SFML/bin/*.so ../../result/pysf/
+if [ $? -ne 0 ]; then
+    echo "Failed to copy dependencies, exiting..."
+    exit 1
+fi
+
+cp SFML/bin/*.dylib ../../result/pysf/
+if [ $? -ne 0 ]; then
+    echo "Failed to copy dependencies, exiting..."
+    exit 1
+fi
+
 cd ..
 
 python3.10 pyFilesGen.py
@@ -26,22 +49,10 @@ if [ $? -ne 0 ]; then
     exit 1
 fi
 
-cp -r required_libs/*.so result/pysf/
-cd build/bin
+cd result/pysf
+py -3.10 -m pybind11_stubgen --output-dir=. pysf.sf
 
-cp pysf.so ../../result/pysf/
-if [ $? -ne 0 ]; then
-    echo "Failed to copy pysf.so, exiting..."
-    exit 1
-fi
-
-python3.10 -m pybind11_stubgen --output-dir=. pysf
-if [ $? -ne 0 ]; then
-    echo "pybind11_stubgen failed, exiting..."
-    exit 1
-fi
-
-cp -r pysf/sf/* ../../result/pysf/
+mv pysf/sf/* . 2>/dev/null
 rm -rf pysf
 
 echo "Script completed successfully!"
