@@ -7,8 +7,8 @@ mkdir build
 if [ -d result ]; then
     rm -rf result
 fi
+mkdir result
 mkdir result/pysf
-mkdir result/lib
 cd build
 
 cmake -DCMAKE_POLICY_VERSION_MINIMUM=3.5 -DCMAKE_BUILD_TYPE=Release .. --trace-expand
@@ -23,19 +23,13 @@ if [ $? -ne 0 ]; then
     exit 1
 fi
 
-cp bin/pysf.so ../../result/pysf/
+cp bin/pysf.so ../result/pysf/
 if [ $? -ne 0 ]; then
     echo "Failed to copy pysf.so, exiting..."
     exit 1
 fi
 
-cp SFML/bin/*.so ../../result/pysf/
-if [ $? -ne 0 ]; then
-    echo "Failed to copy dependencies, exiting..."
-    exit 1
-fi
-
-cp SFML/bin/*.dylib ../../result/pysf/
+cp sfml_libs/*.dylib ../result/pysf/
 if [ $? -ne 0 ]; then
     echo "Failed to copy dependencies, exiting..."
     exit 1
@@ -50,7 +44,7 @@ if [ $? -ne 0 ]; then
 fi
 
 cd result/pysf
-py -3.10 -m pybind11_stubgen --output-dir=. pysf.sf
+python3.10 -m pybind11_stubgen --output-dir=. pysf.sf
 
 mv pysf/sf/* . 2>/dev/null
 rm -rf pysf
