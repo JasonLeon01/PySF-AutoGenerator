@@ -14,11 +14,11 @@ Install the required Python packages:
 
 - On Windows
     ```bash
-    py -3.10 -m pip install clang pybind11-stubgen
+    py -3.10 -m pip install -r requirements.txt
     ```
 - On macOS
     ```bash
-    pip3 install clang pybind11-stubgen
+    python3.10 -m pip install -r requirements.txt
     ```
 
 ## Setup Instructions
