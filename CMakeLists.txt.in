@@ -8,11 +8,23 @@ if (CMAKE_SYSTEM_NAME STREQUAL "Darwin")
     enable_language(OBJCXX)
 endif()
 set(SFML_DIR ${{CMAKE_SOURCE_DIR}}/SFML)
-set(PYBIND11_DIR ${{CMAKE_SOURCE_DIR}}/pybind11)
 find_package(Python3 {python_version} EXACT REQUIRED COMPONENTS Interpreter Development)
 if(NOT Python3_FOUND)
     message(FATAL_ERROR "Python {python_version} not found")
 endif()
+
+execute_process(
+    COMMAND "${Python3_EXECUTABLE}" -m pybind11 --cmakedir
+    OUTPUT_VARIABLE pybind11_DIR
+    OUTPUT_STRIP_TRAILING_WHITESPACE
+    RESULT_VARIABLE PYBIND11_CONFIG_EXIT_CODE
+)
+
+if(NOT PYBIND11_CONFIG_EXIT_CODE EQUAL 0)
+    message(FATAL_ERROR "Failed to get pybind11 cmake directory via python. Please ensure pybind11 is installed: ${Python3_EXECUTABLE} -m pip install pybind11")
+endif()
+
+find_package(pybind11 CONFIG REQUIRED)
 get_filename_component(PYTHON_DIR "${{Python3_EXECUTABLE}}" DIRECTORY)
 message(STATUS "Python Dir: ${{PYTHON_DIR}}")
 message(STATUS "Python include dirs: ${{Python3_INCLUDE_DIRS}}")
@@ -30,7 +42,6 @@ elseif (CMAKE_SYSTEM_NAME STREQUAL "Darwin")
 else()
     message(FATAL_ERROR "Unsupported platform: ${{CMAKE_SYSTEM_NAME}}")
 endif()
-add_subdirectory(${{PYBIND11_DIR}})
 include_directories(${{PYTHON_DIR}}/include)
 include_directories(${{CMAKE_SOURCE_DIR}}/include)
 include_directories(${{CMAKE_SOURCE_DIR}}/output/include)
