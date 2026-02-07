@@ -64,6 +64,7 @@ class Generator:
         REPLACE_DEFAULT,
         IGNORED_MODULE,
         SPECIAL_REPLACE,
+        READWRITE_IGNORE,
         hpp_file,
     ):
         self._common_module_name = common_module_name
@@ -76,6 +77,7 @@ class Generator:
         self._REPLACE_DEFAULT = REPLACE_DEFAULT
         self._IGNORED_MODULE = IGNORED_MODULE
         self._SPECIAL_REPLACE = SPECIAL_REPLACE
+        self._READWRITE_IGNORE = READWRITE_IGNORE
         self._hpp_file = hpp_file
 
     def emit_pybind_module(self, out_file):
@@ -570,6 +572,14 @@ class Generator:
                         f'{indent}{return_sample[1]}({class_var}, "{field_name}", &{full_class_name}::{field_name});\n'
                     )
                 else:
+                    jump = False
+                    if full_class_name in self._READWRITE_IGNORE:
+                        for ignore_field in self._READWRITE_IGNORE[full_class_name]:
+                            if ignore_field == field_name:
+                                jump = True
+                                break
+                    if jump:
+                        continue
                     f.write(f'{indent}{class_var}.def_readwrite("{field_name}", &{full_class_name}::{field_name});\n')
 
         for c in cls.get("children", []):

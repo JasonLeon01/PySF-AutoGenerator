@@ -17,9 +17,9 @@ void bind_RectT(py::module &m_sf, const std::string& name) {
     v_sfRect.def("__eq__", [](sf::Rect<T>& self, sf::Rect<T> right) { return self == right; }, py::arg("right"));  // from global binary operator
     v_sfRect.def("__ne__", [](sf::Rect<T>& self, sf::Rect<T> right) { return self != right; }, py::arg("right"));  // from global binary operator
     v_sfRect.def("__hash__", [](sf::Rect<T>& self) { std::size_t seed = 0; hash_combine(seed, self.position.x); hash_combine(seed, self.position.y); hash_combine(seed, self.size.x); hash_combine(seed, self.size.y); return seed; });
-    v_sfRect.def("__repr__", [](sf::Rect<T>& self) {
+    v_sfRect.def("__repr__", [name](sf::Rect<T>& self) {
         std::stringstream ss;
-        ss << "Rect(" << self.position.x << ", " << self.position.y << ", " << self.size.x << ", " << self.size.y << ")";
+        ss << name << "(" << self.position.x << ", " << self.position.y << ", " << self.size.x << ", " << self.size.y << ")";
         return ss.str();
     });
     add_copy_support(v_sfRect);

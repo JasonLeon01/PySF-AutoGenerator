@@ -1,1 +1,6 @@
+    v_sfTime.def("__repr__", [](sf::Time& self) {
+        std::stringstream ss;
+        ss << "Time(" << self.asSeconds() << "s)";
+        return ss.str();
+    });
     v_sfTime.attr("Zero") = sf::Time::Zero;

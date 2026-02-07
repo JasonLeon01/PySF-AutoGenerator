@@ -63,8 +63,12 @@ REPLACE_DEFAULT = {
 }
 IGNORED_MODULE = ["priv"]
 SPECIAL_REPLACE = {
-    'v_sfRenderTexture.def("getTexture", [](sf::RenderTexture& self) { return self.getTexture(); });': 'v_sfRenderTexture.def("getTexture", [](sf::RenderTexture &self) -> const sf::Texture& { return self.getTexture(); }, py::return_value_policy::reference_internal);'
+    'v_sfRenderTexture.def("getTexture", [](sf::RenderTexture& self) { return self.getTexture(); });': 'v_sfRenderTexture.def("getTexture", [](sf::RenderTexture &self) -> const sf::Texture& { return self.getTexture(); }, py::return_value_policy::reference_internal);',
+    'v_sfTransform.def("getMatrix", [](sf::Transform& self) { return self.getMatrix(); });': 'v_sfTransform.def("getMatrix", [](sf::Transform& self) { const float* m = self.getMatrix(); return std::vector<float>(m, m + 16); });',
+    'v_sfImage.def("getPixelsPtr", [](sf::Image& self) { return self.getPixelsPtr(); });': 'v_sfImage.def("getPixelsArray", [](sf::Image& self) { const std::uint8_t* pixels = self.getPixelsPtr(); auto size = self.getSize(); return std::vector<std::uint8_t>(pixels, pixels + size.x * size.y * 4); }); // Return a copy of the pixels array, the original method is getPixelsPtr()',
 }
+READWRITE_IGNORE = {"sf::SoundStream::Chunk": ["samples"]}
+
 
 hpp_excludes = {
     "Audio": [
@@ -135,6 +139,7 @@ if __name__ == "__main__":
                 REPLACE_DEFAULT,
                 IGNORED_MODULE,
                 SPECIAL_REPLACE,
+                READWRITE_IGNORE,
             )
             PybindGen.generate_hpp_file_from_hpp(
                 read_file,

@@ -38,6 +38,7 @@ def generate_binding_from_hpp(
     REPLACE_DEFAULT,
     IGNORED_MODULE,
     SPECIAL_REPLACE,
+    READWRITE_IGNORE,
 ):
     parser = Parser(includes, hpp_root, hpp_file, cpp_version, ignored_macros)
     items = parser.get_dict()
@@ -52,6 +53,7 @@ def generate_binding_from_hpp(
         REPLACE_DEFAULT,
         IGNORED_MODULE,
         SPECIAL_REPLACE,
+        READWRITE_IGNORE,
         hpp_file,
     )
     generator.emit_pybind_module(output_file)

@@ -1,0 +1,11 @@
+    v_sfSoundStreamChunk.def_property_readonly("samples", 
+        [](sf::SoundStream::Chunk &self) {
+            std::vector<std::int16_t> result;
+
+            if (self.samples && self.sampleCount > 0) {
+                result.assign(self.samples, self.samples + self.sampleCount);
+            }
+
+            return result;
+        }
+    );

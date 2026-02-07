@@ -1,3 +1,8 @@
+    v_sfColor.def("__repr__", [](sf::Color& self) {
+        std::stringstream ss;
+        ss << "Color(" << static_cast<int>(self.r) << ", " << static_cast<int>(self.g) << ", " << static_cast<int>(self.b) << ", " << static_cast<int>(self.a) << ")";
+        return ss.str();
+    });
     v_sfColor.def("__copy__", [](const sf::Color& self) { return sf::Color(self); });
     v_sfColor.def("__deepcopy__", [](const sf::Color& self, py::dict) { return sf::Color(self); }, py::arg("memo"));
     v_sfColor.attr("Black") = sf::Color::Black;

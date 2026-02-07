@@ -1,3 +1,11 @@
+    v_sfTransform.def("__repr__", [](const sf::Transform& self) {
+        const float* m = self.getMatrix();
+        std::stringstream ss;
+        ss << "Transform(" << m[0] << ", " << m[4] << ", " << m[12] << ", "
+           << m[1] << ", " << m[5] << ", " << m[13] << ", "
+           << m[3] << ", " << m[7] << ", " << m[15] << ")";
+        return ss.str();
+    });
     v_sfTransform.def("__copy__", [](const sf::Transform& self) { return sf::Transform(self); });
     v_sfTransform.def("__deepcopy__", [](const sf::Transform& self, py::dict) { return sf::Transform(self); }, py::arg("memo"));
     v_sfTransform.attr("Identity") = sf::Transform::Identity;
