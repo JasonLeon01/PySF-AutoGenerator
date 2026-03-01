@@ -6,7 +6,7 @@ This project automatically generates PyBind11 binding files for SFML 3.0.1, enab
 
 ### Software Requirements
 - **CMake**: Version < 4.0
-- **Python**: Version 3.10.0
+- **Python**: Version 3.12.0
 - **LLVM**: Must be installed on your system
 
 ### Python Dependencies
@@ -14,11 +14,11 @@ Install the required Python packages:
 
 - On Windows
     ```bash
-    py -3.10 -m pip install -r requirements.txt
+    py -3.12 -m pip install -r requirements.txt
     ```
 - On macOS
     ```bash
-    python3.10 -m pip install -r requirements.txt
+    python3.12 -m pip install -r requirements.txt
     ```
 
 ## Setup Instructions
@@ -64,7 +64,7 @@ Then, run `ProjCMake.sh` to start CMake process.
 
 ## Notes
 - Ensure all prerequisites are properly installed before running the build script
-- Make sure Python 3.10.0 is accessible via the `py -3.10` command
+- Make sure Python 3.12.0 is accessible via the `py -3.12` command
 - LLVM must be properly configured in your system PATH
 
 ## Known Limitations
@@ -74,7 +74,7 @@ Then, run `ProjCMake.sh` to start CMake process.
 ## Troubleshooting
 - If you encounter CMake version issues, ensure you're using a version less than 4.0
 - Verify that LLVM is correctly installed and accessible
-- Check that all Python dependencies are installed for the correct Python version (3.10.0)
+- Check that all Python dependencies are installed for the correct Python version (3.12.0)
 
 ### Common Errors
 - **Error:** clang.cindex.LibclangError: [WinError 193] %1

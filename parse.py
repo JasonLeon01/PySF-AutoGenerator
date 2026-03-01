@@ -11,7 +11,7 @@ repo_root = "SFML"
 parse_folders = ["Audio", "Graphics", "Network", "System", "Window"]
 output_folder = "output"
 cpp_version = "c++20"
-python_version = "3.10.0"
+python_version = "3.12.0"
 common_module_name = "sf"
 ignored_macros = [
     "SFML_GRAPHICS_API",

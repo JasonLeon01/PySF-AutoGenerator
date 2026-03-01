@@ -37,14 +37,14 @@ fi
 
 cd ..
 
-python3.10 pyFilesGen.py
+python3.12 pyFilesGen.py
 if [ $? -ne 0 ]; then
-    echo "python3.10 pyFilesGen.py Failed to generate python files"
+    echo "python3.12 pyFilesGen.py Failed to generate python files"
     exit 1
 fi
 
 cd result/pysf
-python3.10 -m pybind11_stubgen --output-dir=. pysf.sf
+python3.12 -m pybind11_stubgen --output-dir=. pysf.sf
 
 mv pysf/sf/* . 2>/dev/null
 rm -rf pysf
