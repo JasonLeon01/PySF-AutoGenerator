@@ -1,6 +1,6 @@
-#include "B_bind_Vector.hpp"
+#include "bind_Vector.hpp"
 
-void B_bind_Vector(py::module &m_sf) {
+void bind_Vector(py::module &m_sf) {
     bind_Vector2T<int>(m_sf, "Vector2i");
     bind_Vector2T<unsigned int>(m_sf, "Vector2u");
     bind_Vector2T<bool>(m_sf, "Vector2b");

@@ -28,11 +28,13 @@ std::string toUTF8String(const sf::String& str);
 template <typename Class>
 void def_string_property(py::class_<Class> &cls,
                          const char *name,
-                         sf::String Class::*field) {
+                         sf::String Class::*field,
+                         const std::string& docstring = "") {
     cls.def_property(
         name,
         [field](const Class &self) { return toUTF8String(self.*field); },
-        [field](Class &self, const std::string &value) { self.*field = toSFString(value); }
+        [field](Class &self, const std::string &value) { self.*field = toSFString(value); },
+        docstring.c_str()
     );
 }
 

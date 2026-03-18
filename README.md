@@ -9,58 +9,29 @@ This project automatically generates PyBind11 binding files for SFML 3.0.1, enab
 - **Python**: Version 3.12.0
 - **LLVM**: Must be installed on your system
 
-### Python Dependencies
-Install the required Python packages:
+## Setup Instructions
+Download `SFML 3.0.1` source code from: https://github.com/SFML/SFML/archive/refs/tags/3.0.1.zip
+
+Extract the downloaded zip file
+
+Rename the extracted folder to `SFML`
 
 - On Windows
     ```bash
-    py -3.12 -m pip install -r requirements.txt
+    .\build.bat
     ```
 - On macOS
+    Download `output-source` and decompress it.
     ```bash
-    python3.12 -m pip install -r requirements.txt
+    chmod +x ./ProjCMake.sh
+    python3 -m venv PySFEnv
+    source PySFEnv/bin/activate
+    pip install -r ./requirements.txt
+    ./ProjCMake.sh
     ```
 
-## Setup Instructions
-
-### 1. Clone PyBind11
-Clone the PyBind11 repository into your project folder:
-```bash
-git clone https://github.com/pybind/pybind11.git
-```
-
-### 2. Download SFML Source Code
-1. Download SFML 3.0.1 source code from: https://github.com/SFML/SFML/archive/refs/tags/3.0.1.zip
-2. Extract the downloaded zip file
-3. Rename the extracted folder to `SFML`
-4. Place it in your project directory
-
-### 3. Project Structure
-After completing the setup, your project directory should look like this:
-```
-your-project/
-├── pybind11/          # Cloned PyBind11 repository
-├── SFML/              # Renamed SFML source folder
-├── build.bat          # Build script
-└── [other project files]
-```
-
-
-### 4. Additions Folder
+## Additions Folder
 The `Additions` folder contains additional binding code for declarations found in SFML's `.inl` files. These files follow the naming pattern `bind_{classname}_Addition.txt` and are automatically appended to the end of the generated binding code during the build process.
-
-## Building
-### If on Windows
-Execute the `build.bat` build script to generate the binding files.
-
-If you already have **output files**, you can just run `ProjCMake.bat` to start CMake process.
-
-When the build is complete, the binding files will be located in the `result` folder.
-
-### If on macOS
-Source building is not supported on macOS yet. You can download `output-source` and decompress it.
-
-Then, run `ProjCMake.sh` to start CMake process.
 
 ## Notes
 - Ensure all prerequisites are properly installed before running the build script

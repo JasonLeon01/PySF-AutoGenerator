@@ -3,9 +3,10 @@
 .venv/
 *.pyc
 __pycache__/
-/CMakeLists.txt
+CMakeLists.txt
 SFML/
 pybind11/
 output/
 build/
-/result
+result/
+PySFEnv/

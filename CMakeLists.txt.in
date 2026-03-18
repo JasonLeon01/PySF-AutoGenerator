@@ -1,59 +1,78 @@
-cmake_minimum_required(VERSION 3.8...3.27)
+cmake_minimum_required(VERSION 3.18...3.27)
+project("pysf" LANGUAGES CXX)
+
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
-set(BUILD_SHARED_LIBS ON CACHE BOOL "Build shared SFML libs")
-set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${{CMAKE_BINARY_DIR}}/sfml_libs)
-project("pysf")
-if (CMAKE_SYSTEM_NAME STREQUAL "Darwin")
-    enable_language(OBJCXX)
-endif()
-set(SFML_DIR ${{CMAKE_SOURCE_DIR}}/SFML)
-find_package(Python3 {python_version} EXACT REQUIRED COMPONENTS Interpreter Development)
+set(CMAKE_POSITION_INDEPENDENT_CODE ON)
+
+set(CMAKE_OSX_DEPLOYMENT_TARGET "12.0" CACHE STRING "Minimum macOS version to build for")
+
+find_package(Python3 {python_version} EXACT REQUIRED COMPONENTS Interpreter Development.Module)
+
 if(NOT Python3_FOUND)
-    message(FATAL_ERROR "Python {python_version} not found")
+    message(FATAL_ERROR "Python {python_version} not found with development modules.")
 endif()
 
 execute_process(
     COMMAND "${{Python3_EXECUTABLE}}" -m pybind11 --cmakedir
-    OUTPUT_VARIABLE pybind11_DIR
+    OUTPUT_VARIABLE PYBIND11_CMAKE_DIR
     OUTPUT_STRIP_TRAILING_WHITESPACE
-    RESULT_VARIABLE PYBIND11_CONFIG_EXIT_CODE
+    RESULT_VARIABLE PYBIND11_RESULT
+    ERROR_QUIET
 )
 
-if(NOT PYBIND11_CONFIG_EXIT_CODE EQUAL 0)
-    message(FATAL_ERROR "Failed to get pybind11 cmake directory via python. Please ensure pybind11 is installed: ${{Python3_EXECUTABLE}} -m pip install pybind11")
+if(NOT PYBIND11_RESULT EQUAL 0 OR NOT EXISTS "${{PYBIND11_CMAKE_DIR}}")
+    execute_process(
+        COMMAND "${{Python3_EXECUTABLE}}" -c "import pybind11; print(pybind11.get_cmake_dir())"
+        OUTPUT_VARIABLE PYBIND11_CMAKE_DIR
+        OUTPUT_STRIP_TRAILING_WHITESPACE
+        RESULT_VARIABLE PYBIND11_RESULT
+    )
 endif()
 
-find_package(pybind11 CONFIG REQUIRED)
-get_filename_component(PYTHON_DIR "${{Python3_EXECUTABLE}}" DIRECTORY)
-message(STATUS "Python Dir: ${{PYTHON_DIR}}")
-message(STATUS "Python include dirs: ${{Python3_INCLUDE_DIRS}}")
-message(STATUS "Python libraries: ${{Python3_LIBRARIES}}")
-add_subdirectory(${{SFML_DIR}})
-if (CMAKE_SYSTEM_NAME STREQUAL "Windows")
-    if (CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
-        include_directories(${{SFML_DIR}}/include)
-        link_directories(${{PYTHON_DIR}}/libs)
-    endif()
-    set(TARGET_SUFFIX ".pyd")
-elseif (CMAKE_SYSTEM_NAME STREQUAL "Darwin")
-    set(FETCHCONTENT_QUIET OFF)
-    set(TARGET_SUFFIX ".so")
-else()
-    message(FATAL_ERROR "Unsupported platform: ${{CMAKE_SYSTEM_NAME}}")
+if(NOT PYBIND11_RESULT EQUAL 0)
+    message(FATAL_ERROR 
+        "Could not find pybind11 cmake config.\n"
+        "Please ensure pybind11 is installed in the current environment:\n"
+        "   ${{Python3_EXECUTABLE}} -m pip install pybind11\n"
+        "Current Python: ${{Python3_EXECUTABLE}}\n"
+        "Error Code: ${{PYBIND11_RESULT}}"
+    )
 endif()
-include_directories(${{PYTHON_DIR}}/include)
+
+message(STATUS "Found pybind11 cmake dir: ${{PYBIND11_CMAKE_DIR}}")
+
+find_package(pybind11 CONFIG REQUIRED PATHS "${{PYBIND11_CMAKE_DIR}}" NO_DEFAULT_PATH)
+
+set(SFML_DIR ${{CMAKE_SOURCE_DIR}}/SFML)
+set(BUILD_SHARED_LIBS ON CACHE BOOL "Build shared SFML libs" FORCE)
+add_subdirectory(${{SFML_DIR}})
+
+if(WIN32)
+    set(TARGET_SUFFIX ".pyd")
+elseif(APPLE)
+    set(TARGET_SUFFIX ".so")
+    set(CMAKE_MACOSX_RPATH TRUE)
+else()
+    set(TARGET_SUFFIX ".so")
+endif()
+
 include_directories(${{CMAKE_SOURCE_DIR}}/include)
 include_directories(${{CMAKE_SOURCE_DIR}}/output/include)
-set(CMAKE_BUILD_TYPE Release)
-if (CMAKE_SYSTEM_NAME STREQUAL "Windows" AND MSVC)
-    set(CMAKE_CXX_FLAGS_RELEASE "/O2 /DNDEBUG")
-else()
-    set(CMAKE_CXX_FLAGS_RELEASE "-O3 -DNDEBUG -flto")
-endif()
-add_library(pysf SHARED
-{sources}
+
+add_library(pysf MODULE
+    {sources}
     "output/main.cpp"
+)
+
+target_link_libraries(pysf PRIVATE
+    pybind11::module 
+    Python3::Module
+    sfml-system
+    sfml-window
+    sfml-graphics
+    sfml-audio
+    sfml-network
 )
 
 set_target_properties(pysf PROPERTIES
@@ -61,33 +80,31 @@ set_target_properties(pysf PROPERTIES
     SUFFIX ${{TARGET_SUFFIX}}
     LIBRARY_OUTPUT_DIRECTORY ${{CMAKE_BINARY_DIR}}/bin
 )
-if(CMAKE_SYSTEM_NAME STREQUAL "Darwin")
+
+if(APPLE)
     set_target_properties(pysf PROPERTIES
-        INSTALL_RPATH "@loader_path"
         BUILD_WITH_INSTALL_RPATH TRUE
+        INSTALL_RPATH "@loader_path"
         MACOSX_RPATH TRUE
     )
 endif()
-target_link_libraries(pysf PRIVATE
-    sfml-system
-    sfml-window
-    sfml-graphics
-    sfml-audio
-    sfml-network
-    Python3::Python
-    pybind11::module
-)
-if(CMAKE_SYSTEM_NAME STREQUAL "Windows")
-    if (CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
-        target_link_libraries(pysf PRIVATE
-            -Wl,-rpath=${{PYTHON_DIR}}/libs
-        )
-        add_custom_command(TARGET pysf POST_BUILD
-            COMMAND ${{CMAKE_STRIP}} --strip-all $<TARGET_FILE:pysf>
-        )
+
+if(NOT CMAKE_CONFIGURATION_TYPES)
+    if(NOT CMAKE_BUILD_TYPE)
+        set(CMAKE_BUILD_TYPE Release CACHE STRING "Build type" FORCE)
     endif()
-elseif(CMAKE_SYSTEM_NAME STREQUAL "Darwin")
+endif()
+
+if(MSVC)
+    target_compile_options(pysf PRIVATE /O2 /DNDEBUG)
+else()
+    target_compile_options(pysf PRIVATE -O3 -DNDEBUG)
+    set_target_properties(pysf PROPERTIES INTERPROCEDURAL_OPTIMIZATION TRUE)
+endif()
+
+if(NOT MSVC AND CMAKE_BUILD_TYPE STREQUAL "Release")
     add_custom_command(TARGET pysf POST_BUILD
-        COMMAND ${{CMAKE_STRIP}} -x $<TARGET_FILE:pysf>
+        COMMAND ${{CMAKE_STRIP}} $<TARGET_FILE:pysf>
+        COMMENT "Stripping symbols from ${{TARGET_FILE:pysf}}"
     )
 endif()

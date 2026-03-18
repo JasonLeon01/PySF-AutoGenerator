@@ -3,23 +3,30 @@ import platform
 from pathlib import Path
 from ctypes.util import find_library
 import clang.cindex
-from . import hppParser
-from . import bindingGenerator
-from . import hppSorter
-from . import utils
+from .hppParser import Parser
+from .bindingGenerator import Generator
+from .hppSorter import Sorter
+from .utils import scan_hpp_files
 
-clang.cindex.Config.set_library_file(find_library("libclang"))
 
 __all__ = ["Parser", "Generator"]
 __version__ = "1.0.0"
 __author__ = "JasonLeon"
-__copyright__ = "Copyright (c) 2025, JasonLeon"
+__copyright__ = "Copyright (c) 2026, JasonLeon"
 __license__ = "MIT"
 
-scan_hpp_files = utils.scan_hpp_files
-Parser = hppParser.Parser
-Generator = bindingGenerator.Generator
-Sorter = hppSorter.Sorter
+clang.cindex.Config.set_library_file(find_library("libclang"))
+MAIN_DOC = "\
+This is an SFML binding library for Python.\\n\
+It provides a set of Python bindings for the SFML library.\\n\
+The bindings are generated using the pybind11 library.\\n\
+\\n\
+SFML is multi-media\\n\
+SFML provides a simple interface to the various components of your PC, to ease the development of games and multimedia applications. It is composed of five modules: system, window, graphics, audio and network.\\n\
+\\n\
+SFML is multi-platform\\n\
+With SFML, your application can compile and run out of the box on the most common operating systems: Windows, Linux, macOS and Android & iOS (with limitations).\\n\
+"
 
 
 def generate_binding_from_hpp(
@@ -68,13 +75,13 @@ def generate_hpp_file_from_hpp(
         file_names = Path(read_file).parts[-3:]
         real_include = "/".join(file_names)
         f.write(f'#include "{real_include}"\n')
-        f.write(f'#include "A_utils.hpp"\n')
+        f.write(f'#include "utils.hpp"\n')
         f.write("namespace py = pybind11;\n\n")
         f.write(f"void bind_{hpp_file.split('.')[0]}(py::module &m); \n")
     print(f"Generated {output_file}")
 
 
-def generate_pybind_main(common_module_name, source_files, output_filename):
+def generate_pybind_main(source_files, output_filename):
     try:
         with open(output_filename, "w", encoding="utf-8") as f:
             f.write(
@@ -87,20 +94,18 @@ def generate_pybind_main(common_module_name, source_files, output_filename):
             f.write("\n")
 
             f.write("PYBIND11_MODULE(pysf, m) {\n")
-            f.write('    m.doc() = "SFML Library";\n\n')
+            f.write(f'    m.doc() = "{MAIN_DOC}";\n\n')
 
             f.write("    void *internals_ptr = static_cast<void *>(\n")
             f.write("        const_cast<py::detail::internals *>(&py::detail::get_internals()));\n")
             f.write('    std::cout << "[PYSF Binding] PyBind11 internals address: " << internals_ptr << std::endl;\n\n')
-
-            f.write(f'    auto m_{common_module_name} = m.def_submodule("{common_module_name}");\n')
 
             for filename in source_files:
                 if not "bind_" in filename:
                     continue
 
                 base_name = Path(filename).name.split(".")[0]
-                f.write(f"    {base_name}(m_{common_module_name});\n")
+                f.write(f"    {base_name}(m);\n")
 
             f.write("}\n")
 
@@ -128,7 +133,9 @@ def generate_cmakelists(source_files, self_files, python_version):
             else:
                 sources += f'    "output/src/{filename.split(".")[0]}.cpp"\n'
 
-        with open(f"{output_filename}.in") as template, open(output_filename, "w") as out:
+        with open(f"{output_filename}.in", encoding="utf-8") as template, open(
+            output_filename, "w", encoding="utf-8"
+        ) as out:
             cmake_content = template.read().format(sources=sources, python_version=python_version)
             out.write(cmake_content)
 

@@ -2,7 +2,7 @@ import os
 import re
 from pathlib import Path
 import tempfile
-from . import utils
+from .utils import normalize_type
 
 UNARY_OPERATOR_MAP = {
     "operator-": "__neg__",
@@ -191,20 +191,15 @@ class Generator:
         return None
 
     def _get_specific_type_replacement(self, cpp_type, raw_type=None):
-        normalized_type = utils.normalize_type(cpp_type)
+        normalized_type = normalize_type(cpp_type)
         normalized_type = normalized_type.replace(" &", "&").replace(" *", "*")
         if raw_type:
-            normalized_raw_type = utils.normalize_type(raw_type)
+            normalized_raw_type = normalize_type(raw_type)
             normalized_raw_type = normalized_raw_type.replace(" &", "&").replace(" *", "*")
         else:
             normalized_raw_type = None
-
         for key, value in self._SPECIFIC_TYPE.items():
-            if isinstance(key, tuple):
-                cpp, raw = key
-                if normalized_type.startswith(cpp) and normalized_raw_type == raw:
-                    return value
-            if normalized_type.startswith(key):
+            if (normalized_raw_type and normalized_raw_type == key) or normalized_type.startswith(key):
                 return value
         return None
 
@@ -215,13 +210,13 @@ class Generator:
         return None
 
     def _is_void_pointer(self, typ):
-        normalized_type = utils.normalize_type(typ)
+        normalized_type = normalize_type(typ)
         return normalized_type == "void *"
 
     def _lambda_argument_string(self, parameters):
         args = []
         for p in parameters:
-            specific_replacement = self._get_specific_type_replacement(p["type"])
+            specific_replacement = self._get_specific_type_replacement(p["type"], p.get("raw_type", None))
             if specific_replacement:
                 pybind_type, _ = specific_replacement
                 args.append(f"{pybind_type} {p['name']}")
@@ -305,7 +300,7 @@ class Generator:
         return cleaned_value
 
     def _extract_clean_type_name(self, param_type):
-        clean_type = utils.normalize_type(param_type)
+        clean_type = normalize_type(param_type)
         clean_type = clean_type.replace("&", "").replace("*", "").strip()
         return clean_type
 
@@ -345,7 +340,7 @@ class Generator:
     def _get_forward_call_arguments(self, parameters):
         callargs = []
         for p in parameters:
-            specific_replacement = self._get_specific_type_replacement(p["type"])
+            specific_replacement = self._get_specific_type_replacement(p["type"], p.get("raw_type", None))
             if specific_replacement:
                 _, call_expr_template = specific_replacement
                 call_expr = call_expr_template.replace("DATA", p["name"])
@@ -422,16 +417,28 @@ class Generator:
                     return item
         return None
 
+    def _get_docstring_parse(self, item):
+        if "doc" in item:
+            docs = item.get("doc")
+            if "text" in docs:
+                text = docs.get("text").replace("\\", "\\\\").replace('"', '\\"').replace("\n", "\\n")
+                return f', "{text}"'
+        return ""
+
     def _emit_cpp_enum(self, f, enum_item, indent, module_var, namespace_prefix=""):
         enum_name = enum_item["name"]
         full_enum_name = f"{namespace_prefix}{enum_name}"
         var_name = f"{module_var}{enum_name}"
 
-        f.write(f'{indent}auto {var_name} = py::enum_<{full_enum_name}>({module_var}, "{enum_name}");\n')
+        f.write(
+            f'{indent}auto {var_name} = py::enum_<{full_enum_name}>({module_var}, "{enum_name}"{self._get_docstring_parse(enum_item)});\n'
+        )
 
         for constant in enum_item.get("constants", []):
             const_name = constant["name"]
-            f.write(f'{indent}{var_name}.value("{const_name}", {full_enum_name}::{const_name});\n')
+            f.write(
+                f'{indent}{var_name}.value("{const_name}", {full_enum_name}::{const_name}{self._get_docstring_parse(constant)});\n'
+            )
 
     def _emit_cpp_class(self, f, cls, indent, module_var, namespace_prefix=""):
         class_name = cls["name"]
@@ -462,17 +469,17 @@ class Generator:
         if base_classes:
             bases_str = ", ".join(f"{base}" for base in base_classes)
             f.write(
-                f'{indent}auto {class_var} = py::class_<{full_class_name}, {bases_str}{holder_str}>({module_var}, "{class_name}");\n'
+                f'{indent}auto {class_var} = py::class_<{full_class_name}, {bases_str}{holder_str}>({module_var}, "{class_name}"{self._get_docstring_parse(cls)});\n'
             )
         else:
             f.write(
-                f'{indent}auto {class_var} = py::class_<{full_class_name}{holder_str}>({module_var}, "{class_name}");\n'
+                f'{indent}auto {class_var} = py::class_<{full_class_name}{holder_str}>({module_var}, "{class_name}"{self._get_docstring_parse(cls)});\n'
             )
 
         if not is_abstract:
             has_constructor = any(c["kind"] == "CONSTRUCTOR" for c in cls.get("children", []))
             if not has_constructor:
-                f.write(f"{indent}{class_var}.def(py::init<>());\n")
+                f.write(f"{indent}{class_var}.def(py::init<>(){self._get_docstring_parse(cls)});\n")
 
             need_unique = False
             no_copy_constructor = False
@@ -511,7 +518,9 @@ class Generator:
 
                     params = c.get("parameters", [])
                     if len(params) == 0:
-                        f.write(f"{indent}{class_var}.def(py::init<>()); // Default constructor\n")
+                        f.write(
+                            f"{indent}{class_var}.def(py::init<>(){self._get_docstring_parse(c)}); // Default constructor\n"
+                        )
                         continue
                     need_switch = False
                     for p in params:
@@ -531,16 +540,18 @@ class Generator:
 
                     if need_unique:
                         f.write(
-                            f"{indent}{class_var}.def(py::init([]({def_args}) {{ return std::make_unique<{full_class_name}>({call_args}); }}){py_args_str});\n"
+                            f"{indent}{class_var}.def(py::init([]({def_args}) {{ return std::make_unique<{full_class_name}>({call_args}); }}){self._get_docstring_parse(c)}{py_args_str});\n"
                         )
                     else:
                         if need_switch:
                             f.write(
-                                f"{indent}{class_var}.def(py::init([]({def_args}) {{ return new {full_class_name}({call_args}); }}){py_args_str});\n"
+                                f"{indent}{class_var}.def(py::init([]({def_args}) {{ return new {full_class_name}({call_args}); }}){self._get_docstring_parse(c)}{py_args_str});\n"
                             )
                         else:
                             def_args = self._lambda_argument_string_for_default_constructor(params)
-                            f.write(f"{indent}{class_var}.def(py::init<{def_args}>(){py_args_str});\n")
+                            f.write(
+                                f"{indent}{class_var}.def(py::init<{def_args}>(){self._get_docstring_parse(c)}{py_args_str});\n"
+                            )
 
             if has_public_copy_ctor:
                 f.write(
@@ -569,7 +580,7 @@ class Generator:
                 return_sample = self._check_specific_return_type(return_type)
                 if return_sample:
                     f.write(
-                        f'{indent}{return_sample[1]}({class_var}, "{field_name}", &{full_class_name}::{field_name});\n'
+                        f'{indent}{return_sample[1]}({class_var}, "{field_name}", &{full_class_name}::{field_name}{self._get_docstring_parse(c)});\n'
                     )
                 else:
                     jump = False
@@ -580,7 +591,9 @@ class Generator:
                                 break
                     if jump:
                         continue
-                    f.write(f'{indent}{class_var}.def_readwrite("{field_name}", &{full_class_name}::{field_name});\n')
+                    f.write(
+                        f'{indent}{class_var}.def_readwrite("{field_name}", &{full_class_name}::{field_name}{self._get_docstring_parse(c)});\n'
+                    )
 
         for c in cls.get("children", []):
             if c["kind"] == "CXX_METHOD" and c.get("access") == "public":
@@ -608,7 +621,9 @@ class Generator:
                     pyname = UNARY_OPERATOR_MAP[name]
                     op = name[len("operator") :]
                     lambda_body = self._cpp_operator_lambda_code(op, [{"name": "self"}])
-                    f.write(f'{indent}{class_var}.def("{pyname}", []({full_class_name}& self) {{ {lambda_body} }});\n')
+                    f.write(
+                        f'{indent}{class_var}.def("{pyname}", []({full_class_name}& self) {{ {lambda_body} }}{self._get_docstring_parse(c)});\n'
+                    )
                 elif is_binary:
                     pyname = BINARY_OPERATOR_MAP[name]
                     op = name[len("operator") :]
@@ -622,15 +637,15 @@ class Generator:
                         pyname1, pyname2 = pyname
                         lambda_body1, lambda_body2 = lambda_body
                         f.write(
-                            f'{indent}{class_var}.def("{pyname1}", []({all_args}) {{ {lambda_body1} }}{py_args_str}, py::return_value_policy::reference_internal);\n'
+                            f'{indent}{class_var}.def("{pyname1}", []({all_args}) {{ {lambda_body1} }}{self._get_docstring_parse(c)}{py_args_str}, py::return_value_policy::reference_internal);\n'
                         )
                         set_item_type = full_return_type.replace("const ", "")
                         f.write(
-                            f'{indent}{class_var}.def("{pyname2}", []({all_args}, const {set_item_type} v) {{ {lambda_body2} }}{py_args_str}, py::arg("v"));\n'
+                            f'{indent}{class_var}.def("{pyname2}", []({all_args}, const {set_item_type} v) {{ {lambda_body2} }}{self._get_docstring_parse(c)}{py_args_str}, py::arg("v"));\n'
                         )
                     else:
                         f.write(
-                            f'{indent}{class_var}.def("{pyname}", []({all_args}) {{ {lambda_body} }}{py_args_str});\n'
+                            f'{indent}{class_var}.def("{pyname}", []({all_args}) {{ {lambda_body} }}{self._get_docstring_parse(c)}{py_args_str});\n'
                         )
                 else:
                     pyname = name
@@ -640,7 +655,7 @@ class Generator:
                     )
                     if c.get("static", False):
                         f.write(
-                            f'{indent}{class_var}.def_static("{pyname}", []({def_args}) {{ return {callcode}; }}{py_args_str});\n'
+                            f'{indent}{class_var}.def_static("{pyname}", []({def_args}) {{ return {callcode}; }}{self._get_docstring_parse(c)}{py_args_str});\n'
                         )
                     else:
                         all_args = f"{full_class_name}& self, {def_args}" if def_args else f"{full_class_name}& self"
@@ -648,7 +663,7 @@ class Generator:
                         if return_sample:
                             callcode = return_sample[0].replace("DATA", callcode)
                         f.write(
-                            f'{indent}{class_var}.def("{pyname}", []({all_args}) {{ return {callcode}; }}{py_args_str});\n'
+                            f'{indent}{class_var}.def("{pyname}", []({all_args}) {{ return {callcode}; }}{self._get_docstring_parse(c)}{py_args_str});\n'
                         )
 
         for c in cls.get("children", []):
@@ -754,7 +769,7 @@ class Generator:
         lambda_body = f"{lambda_body};"
 
         f.write(
-            f'{indent}{module_var}.def("{func["name"]}", []({def_args}) {{ {lambda_body} }} {py_args_str}); // Outer class function \n'
+            f'{indent}{module_var}.def("{func["name"]}", []({def_args}) {{ {lambda_body} }}{self._get_docstring_parse(func)}{py_args_str}); // Outer class function \n'
         )
 
     def _handle_free_operators(self, items, all_class_types, bind_map=None, namespace_prefix=""):

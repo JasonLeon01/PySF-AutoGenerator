@@ -25,10 +25,12 @@ REPLACE_TYPE = {
 }
 SPECIFIC_TYPE = {
     "sf::String": ["std::string", "toSFString(DATA)"],
-    ("void*", "None"): ["py::buffer", "static_cast<std::uint8_t*>(DATA.request().ptr)"],
+    "void*": ["py::buffer", "static_cast<std::uint8_t*>(DATA.request().ptr)"],
     "short*": ["std::vector<short>&", "DATA.data()"],
     "int*": ["std::vector<int>&", "DATA.data()"],
     "float*": ["std::vector<float>&", "DATA.data()"],
+    "std::int16_t*": ["std::vector<std::int16_t>&", "DATA.data()"],
+    "std::uint8_t*": ["std::vector<std::uint8_t>&", "DATA.data()"],
     "sf::Vector2<float>*": ["std::vector<sf::Vector2<float>>&", "DATA.data()"],
     "sf::Vector3<float>*": ["std::vector<sf::Vector3<float>>&", "DATA.data()"],
     "sf::priv::Vector4<float>*": ["std::vector<sf::priv::Vector4<float>>&", "DATA.data()"],
@@ -39,11 +41,7 @@ SPECIFIC_TYPE = {
     "std::function<": ["py::function", "wrap_effect_processor(DATA)"],
     "char*": ["std::string&", "DATA.data()"],
     "wchar_t*": ["std::wstring&", "DATA.data()"],
-    ("HWND__*", "WindowHandle"): [
-        "uintptr_t",
-        "handleToSFMLHandle(DATA)",
-    ],
-    ("void*", "WindowHandle"): [
+    "WindowHandle": [
         "uintptr_t",
         "handleToSFMLHandle(DATA)",
     ],
@@ -66,8 +64,20 @@ SPECIAL_REPLACE = {
     'v_sfRenderTexture.def("getTexture", [](sf::RenderTexture& self) { return self.getTexture(); });': 'v_sfRenderTexture.def("getTexture", [](sf::RenderTexture &self) -> const sf::Texture& { return self.getTexture(); }, py::return_value_policy::reference_internal);',
     'v_sfTransform.def("getMatrix", [](sf::Transform& self) { return self.getMatrix(); });': 'v_sfTransform.def("getMatrix", [](sf::Transform& self) { const float* m = self.getMatrix(); return std::vector<float>(m, m + 16); });',
     'v_sfImage.def("getPixelsPtr", [](sf::Image& self) { return self.getPixelsPtr(); });': 'v_sfImage.def("getPixelsArray", [](sf::Image& self) { const std::uint8_t* pixels = self.getPixelsPtr(); auto size = self.getSize(); return std::vector<std::uint8_t>(pixels, pixels + size.x * size.y * 4); }); // Return a copy of the pixels array, the original method is getPixelsPtr()',
+    'v_sfShader.def(py::init<std::string, sf::Shader::Type>(), "\\\\brief Construct from shader in memory\\n\\nThis constructor loads a single shader, vertex, geometry\\nor fragment, identified by the second argument.\\nThe source code must be a valid shader in GLSL language.\\nGLSL is a C-like language dedicated to OpenGL shaders;\\nyou\'ll probably need to read a good documentation for\\nit before writing your own shaders.\\n\\n\\\\param shader String containing the source code of the shader\\n\\\\param type   Type of shader (vertex, geometry or fragment)\\n\\n\\\\throws sf::Exception if loading was unsuccessful\\n\\n\\\\see `loadFromFile`, `loadFromMemory`, `loadFromStream`", py::arg("shader"), py::arg("type"));': "// Pass construction from memory GLSL code text.",
+    'v_sfShader.def(py::init<std::string, std::string>(), "\\\\brief Construct from vertex and fragment shaders in memory\\n\\nThis constructor loads both the vertex and the fragment\\nshaders. If one of them fails to load, the shader is left\\nempty (the valid shader is unloaded).\\nThe sources must be valid shaders in GLSL language. GLSL is\\na C-like language dedicated to OpenGL shaders; you\'ll\\nprobably need to read a good documentation for it before\\nwriting your own shaders.\\n\\n\\\\param vertexShader   String containing the source code of the vertex shader\\n\\\\param fragmentShader String containing the source code of the fragment shader\\n\\n\\\\throws sf::Exception if loading was unsuccessful\\n\\n\\\\see `loadFromFile`, `loadFromMemory`, `loadFromStream`", py::arg("vertexShader"), py::arg("fragmentShader"));': "// Pass construction from memory GLSL code text.",
+    'v_sfShader.def(py::init<std::string, std::string, std::string>(), "\\\\brief Construct from vertex, geometry and fragment shaders in memory\\n\\nThis constructor loads the vertex, geometry and fragment\\nshaders. If one of them fails to load, the shader is left\\nempty (the valid shader is unloaded).\\nThe sources must be valid shaders in GLSL language. GLSL is\\na C-like language dedicated to OpenGL shaders; you\'ll\\nprobably need to read a good documentation for it before\\nwriting your own shaders.\\n\\n\\\\param vertexShader   String containing the source code of the vertex shader\\n\\\\param geometryShader String containing the source code of the geometry shader\\n\\\\param fragmentShader String containing the source code of the fragment shader\\n\\n\\\\throws sf::Exception if loading was unsuccessful\\n\\n\\\\see `loadFromFile`, `loadFromMemory`, `loadFromStream`", py::arg("vertexShader"), py::arg("geometryShader"), py::arg("fragmentShader"));': "// Pass construction from memory GLSL code text.",
 }
 READWRITE_IGNORE = {"sf::SoundStream::Chunk": ["samples"]}
+
+SELF_INCLUDE_FILES = [
+    "./include/utils.hpp",
+    "./include/bind_Vector.hpp",
+    "./include/bind_Rect.hpp",
+    "./include/bind_Matrix.hpp",
+    "./include/bind_Handle.hpp",
+    "./include/bind_Drawable.hpp",
+]
 
 
 hpp_excludes = {
@@ -177,16 +187,8 @@ if __name__ == "__main__":
         print(f"\nAn unexpected error occurred: {e}", file=sys.stderr)
         sys.exit(1)
 
-    self_include_files = []
-    self_include_path = os.path.join(project_root, "include")
-    for root, dirs, files in os.walk(self_include_path):
-        for file in files:
-            if file.endswith((".hpp", ".h")):
-                self_include_files.append(os.path.join(root, file))
-    self_include_files.sort()
-
     to_write_files = []
-    for file in self_include_files:
+    for file in SELF_INCLUDE_FILES:
         file_name = Path(file).name
         to_write_files.append(file_name)
     for file in sorted_files:
@@ -206,9 +208,8 @@ if __name__ == "__main__":
     print(f"Writing {len(to_write_files)} files to include folder.")
 
     PybindGen.generate_pybind_main(
-        common_module_name,
         to_write_files,
         os.path.join(project_root, output_folder, "main.cpp"),
     )
 
-    PybindGen.generate_cmakelists(to_write_files, self_include_files, python_version)
+    PybindGen.generate_cmakelists(to_write_files, SELF_INCLUDE_FILES, python_version)
