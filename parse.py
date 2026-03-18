@@ -61,12 +61,24 @@ REPLACE_DEFAULT = {
 }
 IGNORED_MODULE = ["priv"]
 SPECIAL_REPLACE = {
-    'v_sfRenderTexture.def("getTexture", [](sf::RenderTexture& self) { return self.getTexture(); });': 'v_sfRenderTexture.def("getTexture", [](sf::RenderTexture &self) -> const sf::Texture& { return self.getTexture(); }, py::return_value_policy::reference_internal);',
-    'v_sfTransform.def("getMatrix", [](sf::Transform& self) { return self.getMatrix(); });': 'v_sfTransform.def("getMatrix", [](sf::Transform& self) { const float* m = self.getMatrix(); return std::vector<float>(m, m + 16); });',
-    'v_sfImage.def("getPixelsPtr", [](sf::Image& self) { return self.getPixelsPtr(); });': 'v_sfImage.def("getPixelsArray", [](sf::Image& self) { const std::uint8_t* pixels = self.getPixelsPtr(); auto size = self.getSize(); return std::vector<std::uint8_t>(pixels, pixels + size.x * size.y * 4); }); // Return a copy of the pixels array, the original method is getPixelsPtr()',
-    'v_sfShader.def(py::init<std::string, sf::Shader::Type>(), "\\\\brief Construct from shader in memory\\n\\nThis constructor loads a single shader, vertex, geometry\\nor fragment, identified by the second argument.\\nThe source code must be a valid shader in GLSL language.\\nGLSL is a C-like language dedicated to OpenGL shaders;\\nyou\'ll probably need to read a good documentation for\\nit before writing your own shaders.\\n\\n\\\\param shader String containing the source code of the shader\\n\\\\param type   Type of shader (vertex, geometry or fragment)\\n\\n\\\\throws sf::Exception if loading was unsuccessful\\n\\n\\\\see `loadFromFile`, `loadFromMemory`, `loadFromStream`", py::arg("shader"), py::arg("type"));': "// Pass construction from memory GLSL code text.",
-    'v_sfShader.def(py::init<std::string, std::string>(), "\\\\brief Construct from vertex and fragment shaders in memory\\n\\nThis constructor loads both the vertex and the fragment\\nshaders. If one of them fails to load, the shader is left\\nempty (the valid shader is unloaded).\\nThe sources must be valid shaders in GLSL language. GLSL is\\na C-like language dedicated to OpenGL shaders; you\'ll\\nprobably need to read a good documentation for it before\\nwriting your own shaders.\\n\\n\\\\param vertexShader   String containing the source code of the vertex shader\\n\\\\param fragmentShader String containing the source code of the fragment shader\\n\\n\\\\throws sf::Exception if loading was unsuccessful\\n\\n\\\\see `loadFromFile`, `loadFromMemory`, `loadFromStream`", py::arg("vertexShader"), py::arg("fragmentShader"));': "// Pass construction from memory GLSL code text.",
-    'v_sfShader.def(py::init<std::string, std::string, std::string>(), "\\\\brief Construct from vertex, geometry and fragment shaders in memory\\n\\nThis constructor loads the vertex, geometry and fragment\\nshaders. If one of them fails to load, the shader is left\\nempty (the valid shader is unloaded).\\nThe sources must be valid shaders in GLSL language. GLSL is\\na C-like language dedicated to OpenGL shaders; you\'ll\\nprobably need to read a good documentation for it before\\nwriting your own shaders.\\n\\n\\\\param vertexShader   String containing the source code of the vertex shader\\n\\\\param geometryShader String containing the source code of the geometry shader\\n\\\\param fragmentShader String containing the source code of the fragment shader\\n\\n\\\\throws sf::Exception if loading was unsuccessful\\n\\n\\\\see `loadFromFile`, `loadFromMemory`, `loadFromStream`", py::arg("vertexShader"), py::arg("geometryShader"), py::arg("fragmentShader"));': "// Pass construction from memory GLSL code text.",
+    (
+        "v_sfRenderTexture",
+        '"getTexture"',
+    ): 'v_sfRenderTexture.def("getTexture", [](sf::RenderTexture &self) -> const sf::Texture& { return self.getTexture(); }, "\\\\brief Get a read-only reference to the target texture\\n\\nAfter drawing to the render-texture and calling Display,\\nyou can retrieve the updated texture using this function,\\nand draw it using a sprite (for example).\\nThe internal `sf::Texture` of a render-texture is always the\\nsame instance, so that it is possible to call this function\\nonce and keep a reference to the texture even after it is\\nmodified.\\n\\n\\\\return Const reference to the texture", py::return_value_policy::reference_internal);',
+    (
+        "v_sfTransform",
+        '"getMatrix"',
+    ): 'v_sfTransform.def("getMatrix", [](sf::Transform& self) { const float* m = self.getMatrix(); return std::vector<float>(m, m + 16); }, "\\\\brief Return the transform as a 4x4 matrix\\n\\nThis function returns a pointer to an array of 16 floats\\ncontaining the transform elements as a 4x4 matrix, which\\nis directly compatible with OpenGL functions.\\n\\n\\\\code\\nsf::Transform transform = ...;\\nglLoadMatrixf(transform.getMatrix());\\n\\\\endcode\\n\\n\\\\return Pointer to a 4x4 matrix");',
+    (
+        "v_sfImage",
+        '"getPixelsPtr"',
+    ): 'v_sfImage.def("getPixelsArray", [](sf::Image& self) { const std::uint8_t* pixels = self.getPixelsPtr(); auto size = self.getSize(); return std::vector<std::uint8_t>(pixels, pixels + size.x * size.y * 4); }, "\\\\brief Get a read-only pointer to the array of pixels\\n\\nThe returned value points to an array of RGBA pixels made of\\n8 bit integer components. The size of the array is\\n`width * height * 4 (getSize().x * getSize().y * 4)`.\\nWarning: the returned pointer may become invalid if you\\nmodify the image, so you should never store it for too long.\\nIf the image is empty, a null pointer is returned.\\n\\n\\\\return Read-only pointer to the array of pixels"); // Return a copy of the pixels array, the original method is getPixelsPtr()',
+    ("v_sfShader", "py::init<std::string, sf::Shader::Type>()"): "// Pass construction from memory GLSL code text.",
+    ("v_sfShader", "py::init<std::string, std::string>()"): "// Pass construction from memory GLSL code text.",
+    (
+        "v_sfShader",
+        "py::init<std::string, std::string, std::string>()",
+    ): "// Pass construction from memory GLSL code text.",
 }
 READWRITE_IGNORE = {"sf::SoundStream::Chunk": ["samples"]}
 

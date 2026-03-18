@@ -113,8 +113,11 @@ class Generator:
                 if key in to_append:
                     to_append = to_append.replace(key, f"{value} /* {key} */ ")
             for key, value in self._SPECIAL_REPLACE.items():
-                if key in to_append:
-                    to_append = to_append.replace(key, value)
+                (key_word1, key_word2) = key
+                if key_word1 in to_append and key_word2 in to_append:
+                    to_append = value
+                    if not to_append.endswith("\n"):
+                        to_append += "\n"
             if "def_submodule" in to_append:
                 need_continue = False
                 for module in self._IGNORED_MODULE:
@@ -134,8 +137,11 @@ class Generator:
                 if key in to_append:
                     to_append = to_append.replace(key, f"{value} /* {key} */ ")
             for key, value in self._SPECIAL_REPLACE.items():
-                if key in to_append:
-                    to_append = to_append.replace(key, value)
+                (key_word1, key_word2) = key
+                if key_word1 in to_append and key_word2 in to_append:
+                    to_append = value
+                    if not to_append.endswith("\n"):
+                        to_append += "\n"
             temp_other_lines.append(to_append)
         other_lines = temp_other_lines
 
