@@ -2,6 +2,7 @@ import os
 import sys
 from collections import deque, defaultdict
 from clang import cindex
+from .utils import get_macos_clang_args
 
 
 class Sorter:
@@ -14,6 +15,8 @@ class Sorter:
         self.clang_args.append("-x")
         self.clang_args.append("c++-header")
         self.clang_args.append("-fno-delayed-template-parsing")
+        if sys.platform == "darwin":
+            self.clang_args.extend(get_macos_clang_args())
 
         print("Clang arguments for parsing:")
         for arg in self.clang_args:

@@ -15,7 +15,7 @@ cmake -DCMAKE_POLICY_VERSION_MINIMUM=3.5 -DCMAKE_BUILD_TYPE=Release .. --trace-e
 cmake --build . -- -j$(sysctl -n hw.ncpu)
 
 cp bin/pysf.so ../result/pysf/
-cp sfml_libs/*.dylib ../result/pysf/
+cp SFML/lib/*.dylib ../result/pysf/
 
 cd ..
 python3 pyFilesGen.py

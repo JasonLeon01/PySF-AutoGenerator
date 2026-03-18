@@ -1,6 +1,8 @@
 import os
 import re
+import sys
 import clang.cindex
+from .utils import get_macos_clang_args
 
 
 INTERESTED_KINDS = (
@@ -35,6 +37,8 @@ class Parser:
             includes,
             *[f"-D{macro}=" for macro in ignored_macros],
         ]
+        if sys.platform == "darwin":
+            args.extend(get_macos_clang_args())
         index = clang.cindex.Index.create()
         real_path = os.path.join(hpp_root, hpp_file)
         tu = index.parse(

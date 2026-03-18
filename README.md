@@ -23,11 +23,9 @@ Rename the extracted folder to `SFML`
 - On macOS
     Download `output-source` and decompress it.
     ```bash
+    chmod +x ./build.sh
     chmod +x ./ProjCMake.sh
-    python3 -m venv PySFEnv
-    source PySFEnv/bin/activate
-    pip install -r ./requirements.txt
-    ./ProjCMake.sh
+    ./build.sh
     ```
 
 ## Additions Folder

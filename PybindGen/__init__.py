@@ -1,5 +1,6 @@
 import os
-import platform
+import sys
+import glob
 from pathlib import Path
 from ctypes.util import find_library
 import clang.cindex
@@ -10,12 +11,11 @@ from .utils import scan_hpp_files
 
 
 __all__ = ["Parser", "Generator"]
-__version__ = "1.0.0"
+__version__ = "1.1.0"
 __author__ = "JasonLeon"
 __copyright__ = "Copyright (c) 2026, JasonLeon"
 __license__ = "MIT"
 
-clang.cindex.Config.set_library_file(find_library("libclang"))
 MAIN_DOC = "\
 This is an SFML binding library for Python.\\n\
 It provides a set of Python bindings for the SFML library.\\n\
@@ -28,6 +28,39 @@ SFML is multi-platform\\n\
 With SFML, your application can compile and run out of the box on the most common operating systems: Windows, Linux, macOS and Android & iOS (with limitations).\\n\
 "
 
+clang_path = None
+if sys.platform == "darwin":
+    env_clang = os.environ.get("LIBCLANG_PATH")
+    if env_clang and os.path.exists(env_clang):
+        clang_path = env_clang
+    else:
+        homebrew_candidates = [
+            "/opt/homebrew/opt/llvm/lib/libclang.dylib",
+            "/usr/local/opt/llvm/lib/libclang.dylib",
+        ]
+        for candidate in homebrew_candidates:
+            if os.path.exists(candidate):
+                clang_path = candidate
+                break
+
+        if not clang_path:
+            homebrew_patterns = [
+                "/opt/homebrew/Cellar/llvm/*/lib/libclang.dylib",
+                "/usr/local/Cellar/llvm/*/lib/libclang.dylib",
+            ]
+            for pattern in homebrew_patterns:
+                matching_paths = glob.glob(pattern)
+                if matching_paths:
+                    clang_path = matching_paths[0]
+                    break
+else:
+    clang_path = find_library("libclang")
+
+if not clang_path:
+    raise FileNotFoundError("clang library not found")
+
+clang.cindex.Config.set_library_file(clang_path)
+os.environ.setdefault("PYSF_LIBCLANG_PATH", clang_path)
 
 def generate_binding_from_hpp(
     common_module_name,
@@ -119,7 +152,8 @@ def generate_pybind_main(source_files, output_filename):
 def generate_cmakelists(source_files, self_files, python_version):
     output_filename = "CMakeLists.txt"
     try:
-        sources = ""
+        sources_arr = []
+        mm_sources_arr = []
         for filename in source_files:
             flag = False
             for self_file in self_files:
@@ -127,16 +161,18 @@ def generate_cmakelists(source_files, self_files, python_version):
                     flag = True
                     break
             if flag:
-                sources += f'    "src/{filename.split(".")[0]}.cpp"\n'
-                if platform.system() == "Darwin" and os.path.exists(f'src/{filename.split(".")[0]}.mm'):
-                    sources += f'    "src/{filename.split(".")[0]}.mm"\n'
+                sources_arr.append(f'    "src/{filename.split(".")[0]}.cpp"')
+                if os.path.exists(f'src/{filename.split(".")[0]}.mm'):
+                    mm_sources_arr.append(f'        "src/{filename.split(".")[0]}.mm"')
             else:
-                sources += f'    "output/src/{filename.split(".")[0]}.cpp"\n'
+                sources_arr.append(f'    "output/src/{filename.split(".")[0]}.cpp"')
+        sources = "\n".join(sources_arr)
+        mm_sources = "\n".join(mm_sources_arr)
 
         with open(f"{output_filename}.in", encoding="utf-8") as template, open(
             output_filename, "w", encoding="utf-8"
         ) as out:
-            cmake_content = template.read().format(sources=sources, python_version=python_version)
+            cmake_content = template.read().format(sources=sources, mm_sources=mm_sources, python_version=python_version)
             out.write(cmake_content)
 
         print(f"CMakeLists.txt generated successfully: {output_filename}")

@@ -60,10 +60,18 @@ endif()
 include_directories(${{CMAKE_SOURCE_DIR}}/include)
 include_directories(${{CMAKE_SOURCE_DIR}}/output/include)
 
-add_library(pysf MODULE
-    {sources}
+set(PYSF_SOURCES
+{sources}
     "output/main.cpp"
 )
+
+if(APPLE)
+    list(APPEND PYSF_SOURCES 
+{mm_sources}
+    )
+endif()
+
+add_library(pysf MODULE ${{PYSF_SOURCES}})
 
 target_link_libraries(pysf PRIVATE
     pybind11::module 
@@ -103,8 +111,9 @@ else()
 endif()
 
 if(NOT MSVC AND CMAKE_BUILD_TYPE STREQUAL "Release")
-    add_custom_command(TARGET pysf POST_BUILD
-        COMMAND ${{CMAKE_STRIP}} $<TARGET_FILE:pysf>
-        COMMENT "Stripping symbols from ${{TARGET_FILE:pysf}}"
-    )
+    if(APPLE)
+        add_custom_command(TARGET pysf POST_BUILD
+            COMMAND strip -x $<TARGET_FILE:pysf>
+        )
+    endif()
 endif()

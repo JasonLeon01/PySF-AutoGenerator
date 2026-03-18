@@ -79,6 +79,7 @@ SPECIAL_REPLACE = {
         "v_sfShader",
         "py::init<std::string, std::string, std::string>()",
     ): "// Pass construction from memory GLSL code text.",
+    ("v_sfPacket", '"__rshift__", [](sf::Packet& self, std::string data)'): "// Pass std::string data to sf::Packet.__rshift__",
 }
 READWRITE_IGNORE = {"sf::SoundStream::Chunk": ["samples"]}
 
