@@ -5,7 +5,6 @@ This project automatically generates PyBind11 binding files for SFML 3.0.1, enab
 ## Prerequisites
 
 ### Software Requirements
-- **CMake**: Version < 4.0
 - **Python**: Version 3.12.0
 - **LLVM**: Must be installed on your system
 
@@ -35,10 +34,6 @@ The `Additions` folder contains additional binding code for declarations found i
 - Ensure all prerequisites are properly installed before running the build script
 - Make sure Python 3.12.0 is accessible via the `py -3.12` command
 - LLVM must be properly configured in your system PATH
-
-## Known Limitations
-- Clang/LLVM compile checks currently fail due to attempts to bind rvalues to `sf::String&` (non-const reference), resulting in errors such as `invalid operands to binary expression`. The current auto-generated binding code includes such cases and requires adjustments.
-- Visual Studio 2026 (`VS2026`) is currently not supported for CMake builds.
 
 ## Troubleshooting
 - If you encounter CMake version issues, ensure you're using a version less than 4.0
