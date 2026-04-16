@@ -1,15 +1,15 @@
 # PySFML-AutoGenerator
 
-This project automatically generates PyBind11 binding files for SFML 3.0.1, enabling Python developers to use SFML graphics library seamlessly.
+This project automatically generates PyBind11 binding files for SFML 3.0.2, enabling Python developers to use SFML graphics library seamlessly.
 
 ## Prerequisites
 
 ### Software Requirements
-- **Python**: Version 3.12.0
+- **Python**: Version 3.12
 - **LLVM**: Must be installed on your system
 
 ## Setup Instructions
-Download `SFML 3.0.1` source code from: https://github.com/SFML/SFML/archive/refs/tags/3.0.1.zip
+Download `SFML 3.0.2` source code from: https://github.com/SFML/SFML/archive/refs/tags/3.0.2.zip
 
 Extract the downloaded zip file
 
@@ -32,13 +32,12 @@ The `Additions` folder contains additional binding code for declarations found i
 
 ## Notes
 - Ensure all prerequisites are properly installed before running the build script
-- Make sure Python 3.12.0 is accessible via the `py -3.12` command
+- Make sure Python 3.12 is accessible via the `py -3.12` or `python3.12` command
 - LLVM must be properly configured in your system PATH
 
 ## Troubleshooting
-- If you encounter CMake version issues, ensure you're using a version less than 4.0
 - Verify that LLVM is correctly installed and accessible
-- Check that all Python dependencies are installed for the correct Python version (3.12.0)
+- Check that all Python dependencies are installed for the correct Python version (3.12)
 
 ### Common Errors
 - **Error:** clang.cindex.LibclangError: [WinError 193] %1
