@@ -10,7 +10,7 @@ cd build
 cmake -G "Visual Studio 17 2022" -A x64 ..
 cmake --build . --config Release -- /m:16
 
-copy "bin\Release\pysf.pyd" "..\result\pysf\"
+xcopy "bin\Release\*.pyd" "..\result\pysf\" /Y
 xcopy "SFML\bin\Release\*.dll" "..\result\pysf\" /Y
 xcopy "SFML\lib\Release\*.lib" "..\result\lib\" /Y
 

@@ -14,7 +14,7 @@ cd build
 cmake -DCMAKE_POLICY_VERSION_MINIMUM=3.5 -DCMAKE_BUILD_TYPE=Release .. --trace-expand
 cmake --build . -- -j$(sysctl -n hw.ncpu)
 
-cp bin/pysf.so ../result/pysf/
+cp bin/*.so ../result/pysf/
 cp SFML/lib/*.dylib ../result/pysf/
 
 cd ..

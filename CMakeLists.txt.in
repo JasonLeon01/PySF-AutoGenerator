@@ -1,5 +1,9 @@
 cmake_minimum_required(VERSION 3.18...3.27)
-project("pysf" LANGUAGES CXX)
+if(APPLE)
+    project("pysf" LANGUAGES CXX OBJCXX)
+else()
+    project("pysf" LANGUAGES CXX)
+endif()
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -7,11 +11,7 @@ set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
 set(CMAKE_OSX_DEPLOYMENT_TARGET "12.0" CACHE STRING "Minimum macOS version to build for")
 
-find_package(Python3 {python_version} EXACT REQUIRED COMPONENTS Interpreter Development.Module)
-
-if(NOT Python3_FOUND)
-    message(FATAL_ERROR "Python {python_version} not found with development modules.")
-endif()
+find_package(Python3 REQUIRED COMPONENTS Interpreter Development)
 
 execute_process(
     COMMAND "${{Python3_EXECUTABLE}}" -m pybind11 --cmakedir
@@ -42,20 +42,12 @@ endif()
 
 message(STATUS "Found pybind11 cmake dir: ${{PYBIND11_CMAKE_DIR}}")
 
-find_package(pybind11 CONFIG REQUIRED PATHS "${{PYBIND11_CMAKE_DIR}}" NO_DEFAULT_PATH)
+set(PYBIND11_FINDPYTHON ON)
+find_package(pybind11 REQUIRED PATHS ${{PYBIND11_CMAKE_DIR}})
 
 set(SFML_DIR ${{CMAKE_SOURCE_DIR}}/SFML)
 set(BUILD_SHARED_LIBS ON CACHE BOOL "Build shared SFML libs" FORCE)
 add_subdirectory(${{SFML_DIR}})
-
-if(WIN32)
-    set(TARGET_SUFFIX ".pyd")
-elseif(APPLE)
-    set(TARGET_SUFFIX ".so")
-    set(CMAKE_MACOSX_RPATH TRUE)
-else()
-    set(TARGET_SUFFIX ".so")
-endif()
 
 include_directories(${{CMAKE_SOURCE_DIR}}/include)
 include_directories(${{CMAKE_SOURCE_DIR}}/output/include)
@@ -65,17 +57,16 @@ set(PYSF_SOURCES
     "output/main.cpp"
 )
 
-if(APPLE)
+if (APPLE)
     list(APPEND PYSF_SOURCES 
 {mm_sources}
     )
 endif()
 
-add_library(pysf MODULE ${{PYSF_SOURCES}})
+pybind11_add_module(pysf ${{PYSF_SOURCES}})
 
 target_link_libraries(pysf PRIVATE
     pybind11::module 
-    Python3::Module
     sfml-system
     sfml-window
     sfml-graphics
@@ -84,8 +75,6 @@ target_link_libraries(pysf PRIVATE
 )
 
 set_target_properties(pysf PROPERTIES
-    PREFIX ""
-    SUFFIX ${{TARGET_SUFFIX}}
     LIBRARY_OUTPUT_DIRECTORY ${{CMAKE_BINARY_DIR}}/bin
 )
 
@@ -103,17 +92,15 @@ if(NOT CMAKE_CONFIGURATION_TYPES)
     endif()
 endif()
 
-if(MSVC)
-    target_compile_options(pysf PRIVATE /O2 /DNDEBUG)
-else()
+if(APPLE)
     target_compile_options(pysf PRIVATE -O3 -DNDEBUG)
     set_target_properties(pysf PROPERTIES INTERPROCEDURAL_OPTIMIZATION TRUE)
+else()
+    target_compile_options(pysf PRIVATE /O2 /DNDEBUG)
 endif()
 
-if(NOT MSVC AND CMAKE_BUILD_TYPE STREQUAL "Release")
-    if(APPLE)
-        add_custom_command(TARGET pysf POST_BUILD
-            COMMAND strip -x $<TARGET_FILE:pysf>
-        )
-    endif()
+if(APPLE AND CMAKE_BUILD_TYPE STREQUAL "Release")
+    add_custom_command(TARGET pysf POST_BUILD
+        COMMAND strip -x $<TARGET_FILE:pysf>
+    )
 endif()

@@ -7,7 +7,7 @@ namespace py = pybind11;
 
 template <int N>
 void bind_MatrixT(py::module &m_sf, const std::string& name) {
-    auto v_sfMatrix = py::class_<sf::priv::Matrix<N, N>>(m_sf, name.c_str(), "\\brief 4x4 float matrix (\\p mat4 in GLSL)\n\nThe matrix can be constructed from an array with 4x4\n\nelements, aligned in column-major order. For example,\n\na translation by (x, y) looks as follows:\n\n\\code\nfloat array[9] =\n{\n    1, 0, 0,\n    0, 1, 0,\n    x, y, 1\n};\n\nsf::Glsl::Mat4 matrix(array);\n\endcode\n\nMat4 can also be implicitly converted from `sf::Transform`:\n\n\\code\nsf::Transform transform;\nsf::Glsl::Mat4 matrix = transform;\n\endcode");
+    auto v_sfMatrix = py::class_<sf::priv::Matrix<N, N>>(m_sf, name.c_str(), "\\brief 4x4 float matrix (\\p mat4 in GLSL)\n\nThe matrix can be constructed from an array with 4x4\n\nelements, aligned in column-major order. For example,\n\na translation by (x, y) looks as follows:\n\n\\code\nfloat array[9] =\n{\n    1, 0, 0,\n    0, 1, 0,\n    x, y, 1\n};\n\nsf::Glsl::Mat4 matrix(array);\n\\endcode\n\nMat4 can also be implicitly converted from `sf::Transform`:\n\n\\code\nsf::Transform transform;\nsf::Glsl::Mat4 matrix = transform;\n\\endcode");
     v_sfMatrix.def(py::init<>([](const std::vector<float>& pointer) { return new sf::priv::Matrix<N, N>(pointer.data()); }), py::arg("pointer"));
     v_sfMatrix.def(py::init<>([](const sf::Transform& transform) { return new sf::priv::Matrix<N, N>(transform); }), py::arg("transform"));
     v_sfMatrix.def_readwrite("array", &sf::priv::Matrix<N, N>::array);
