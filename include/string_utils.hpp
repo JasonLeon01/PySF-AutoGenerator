@@ -78,7 +78,7 @@ void def_vector_vector_string_property(py::class_<Class> &cls,
     cls.def_property(
         name,
         [field](const Class &self) { return toVectorVectorUTF8String(self.*field); },
-        [field](Class &self, const std::vector<std::vector<std::string>>& value) { self.*field = toVectorVectorVectorSFString(value); },
+        [field](Class &self, const std::vector<std::vector<std::string>>& value) { self.*field = toVectorVectorSFString(value); },
         docstring.c_str()
     );
 }
