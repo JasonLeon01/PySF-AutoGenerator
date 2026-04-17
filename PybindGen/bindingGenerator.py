@@ -79,6 +79,183 @@ class Generator:
         self._SPECIAL_REPLACE = SPECIAL_REPLACE
         self._READWRITE_IGNORE = READWRITE_IGNORE
         self._hpp_file = hpp_file
+        self._short_type_to_qualified = self._build_short_type_map(self._dict_root)
+        self._namespaces = self._build_namespace_set(self._dict_root)
+        self._cpp_scope_stack = []
+
+    def _build_short_type_map(self, items, prefix="", out=None):
+        if out is None:
+            out = {}
+
+        for item in items:
+            kind = item.get("kind")
+
+            if kind == "NAMESPACE":
+                ns_name = item.get("name", "")
+                ns_prefix = f"{prefix}{ns_name}::" if ns_name else prefix
+                self._build_short_type_map(item.get("children", []), ns_prefix, out)
+                continue
+
+            if kind in ("CLASS_DECL", "STRUCT_DECL", "ENUM_DECL"):
+                short_name = item.get("name", "")
+                if short_name:
+                    full_name = f"{prefix}{short_name}" if prefix else short_name
+                    out.setdefault(short_name, set()).add(full_name)
+                else:
+                    full_name = prefix.rstrip(":")
+
+                nested_prefix = f"{full_name}::" if full_name else prefix
+                self._build_short_type_map(item.get("children", []), nested_prefix, out)
+                continue
+
+            if kind in ("TYPEDEF_DECL", "TYPE_ALIAS_DECL"):
+                short_name = item.get("name", "")
+                if short_name:
+                    full_name = f"{prefix}{short_name}" if prefix else short_name
+                    out.setdefault(short_name, set()).add(full_name)
+                continue
+
+            self._build_short_type_map(item.get("children", []), prefix, out)
+
+        return out
+
+    def _build_namespace_set(self, items, prefix="", out=None):
+        if out is None:
+            out = set()
+
+        for item in items:
+            kind = item.get("kind")
+
+            if kind == "NAMESPACE":
+                ns_name = item.get("name", "")
+                if ns_name:
+                    full_ns = f"{prefix}{ns_name}" if prefix else ns_name
+                    out.add(full_ns)
+                    ns_prefix = f"{full_ns}::"
+                else:
+                    ns_prefix = prefix
+                self._build_namespace_set(item.get("children", []), ns_prefix, out)
+                continue
+
+            self._build_namespace_set(item.get("children", []), prefix, out)
+
+        return out
+
+    def _extract_std_function_signature(self, cpp_type):
+        if not cpp_type or "std::function" not in cpp_type:
+            return None
+
+        start = cpp_type.find("std::function")
+        lt_pos = cpp_type.find("<", start)
+        if lt_pos == -1:
+            return None
+
+        depth = 0
+        for i in range(lt_pos, len(cpp_type)):
+            ch = cpp_type[i]
+            if ch == "<":
+                depth += 1
+            elif ch == ">":
+                depth -= 1
+                if depth == 0:
+                    return cpp_type[lt_pos + 1 : i].strip()
+        return None
+
+    def _normalize_function_signature(self, signature):
+        if not signature:
+            return signature
+
+        signature = re.sub(r"\s+", " ", signature).strip()
+        signature = signature.replace(" *", "*").replace("& ", "&").replace(" &", "&")
+        signature = re.sub(r"\s+\(", "(", signature, count=1)
+        signature = signature.replace("( ", "(").replace(" )", ")")
+        return signature
+
+    def _qualify_signature_types(self, signature):
+        if not signature:
+            return signature
+
+        result = signature
+        for short_name in sorted(self._short_type_to_qualified.keys(), key=len, reverse=True):
+            qualified_names = self._short_type_to_qualified.get(short_name, set())
+            if len(qualified_names) != 1:
+                continue
+
+            qualified_name = next(iter(qualified_names))
+            if qualified_name == short_name:
+                continue
+
+            pattern = rf"(?<![:\w]){re.escape(short_name)}(?!\w)"
+            result = re.sub(pattern, qualified_name, result)
+
+        result = self._qualify_signature_with_enclosing_namespace(result)
+        return result
+
+    def _push_cpp_scope(self, scope_prefix):
+        self._cpp_scope_stack.append(scope_prefix or "")
+
+    def _pop_cpp_scope(self):
+        if self._cpp_scope_stack:
+            self._cpp_scope_stack.pop()
+
+    def _current_cpp_scope(self):
+        return self._cpp_scope_stack[-1] if self._cpp_scope_stack else ""
+
+    def _enclosing_namespace_prefix(self, scope_prefix):
+        if not scope_prefix:
+            return ""
+
+        s = scope_prefix.strip()
+        s = s.rstrip(":")
+        if not s:
+            return ""
+
+        parts = [p for p in s.split("::") if p]
+        for i in range(len(parts), 0, -1):
+            candidate = "::".join(parts[:i])
+            if candidate in self._namespaces:
+                return candidate + "::"
+        return ""
+
+    def _qualify_signature_with_enclosing_namespace(self, signature):
+        scope = self._current_cpp_scope()
+        ns_prefix = self._enclosing_namespace_prefix(scope)
+        if not ns_prefix:
+            return signature
+
+        skip = {
+            "void",
+            "bool",
+            "char",
+            "signed",
+            "unsigned",
+            "short",
+            "int",
+            "long",
+            "float",
+            "double",
+            "wchar_t",
+            "char8_t",
+            "char16_t",
+            "char32_t",
+            "const",
+            "volatile",
+            "auto",
+            "size_t",
+            "ssize_t",
+            "std",
+        }
+
+        def repl(m):
+            name = m.group(1)
+            if name in skip:
+                return name
+            if not name or not name[0].isupper():
+                return name
+            return f"{ns_prefix}{name}"
+
+        pattern = r"(?<![:\w])([A-Za-z_]\w*)(?!\w)"
+        return re.sub(pattern, repl, signature)
 
     def emit_pybind_module(self, out_file):
         all_class_types = self._get_all_class_types(self._dict_root)
@@ -189,6 +366,18 @@ class Generator:
         typ = re.sub(r"\s+", " ", typ)
         return typ
 
+    def _signature_type_key(self, typ):
+        typ = re.sub(r"\s+", " ", typ).strip()
+        typ = typ.replace(" &", "&").replace("& ", "&")
+        typ = typ.replace(" *", "*").replace("* ", "*")
+        return typ
+
+    def _method_overload_key(self, method):
+        name = method.get("name", "")
+        params = method.get("parameters", [])
+        param_key = tuple(self._signature_type_key(p.get("raw_type") or p.get("type", "")) for p in params)
+        return (name, param_key)
+
     def _find_replace_type(self, typ):
         ctyp = self._canonical_type(typ)
         for k, v in self._REPLACE_TYPE.items():
@@ -209,6 +398,19 @@ class Generator:
                 return value
         return None
 
+    def _get_function_replacement(self, cpp_type, raw_type=None):
+        type_ = cpp_type
+        if "std::function" in type_:
+            if not raw_type is None and "std::" in raw_type:
+                type_ = raw_type
+            signature = self._extract_std_function_signature(type_)
+            signature = self._normalize_function_signature(signature)
+            signature = self._qualify_signature_types(signature)
+            wrap_call = f"wrap_pyfunction<{signature}>(DATA)"
+            empty_fallback = f"std::function<{signature}>{{}}"
+            return ["py::function", f"(DATA ? {wrap_call} : {empty_fallback})"]
+        return None
+
     def _check_specific_return_type(self, return_type):
         for key, value in self._SPECIFIC_RETURN_TYPE.items():
             if key in return_type:
@@ -223,6 +425,8 @@ class Generator:
         args = []
         for p in parameters:
             specific_replacement = self._get_specific_type_replacement(p["type"], p.get("raw_type", None))
+            if not specific_replacement:
+                specific_replacement = self._get_function_replacement(p["type"], p.get("raw_type", None))
             if specific_replacement:
                 pybind_type, _ = specific_replacement
                 args.append(f"{pybind_type} {p['name']}")
@@ -243,7 +447,77 @@ class Generator:
             args.append(t)
         return ", ".join(args)
 
-    def _generate_py_args_string(self, parameters):
+    def _is_simple_default_value(self, default_value):
+        if default_value is None:
+            return True
+
+        dv = default_value.strip()
+        if not dv:
+            return True
+
+        if dv in {"true", "false", "nullptr", "NULL", "std::nullopt"}:
+            return True
+
+        if dv.startswith("py::"):
+            return True
+
+        if dv.startswith('"') or dv.startswith('u8"') or dv.startswith('L"'):
+            return True
+
+        if re.match(r"^[+-]?\d+$", dv):
+            return True
+        if re.match(r"^[+-]?(\d+(\.\d*)?|\.\d+)([eE][+-]?\d+)?[fF]?$", dv):
+            return True
+        if re.match(r"^0x[0-9A-Fa-f]+$", dv):
+            return True
+
+        if "::" in dv:
+            return False
+        if "(" in dv or ")" in dv:
+            return False
+        if "{" in dv or "}" in dv:
+            return False
+
+        return True
+
+    def _needs_default_overload(self, parameters):
+        for p in parameters or []:
+            if p.get("default_value") is None:
+                continue
+            default_value = p["default_value"].strip()
+            if default_value.startswith("="):
+                default_value = default_value[1:].strip()
+
+            raw_default_value = default_value
+            function_replacement = self._get_function_replacement(p["type"], p.get("raw_type", None))
+            if function_replacement and raw_default_value == "{}":
+                default_value = "py::function()"
+            else:
+                default_value = self._process_default_value(default_value, p["type"])
+
+            if not self._is_simple_default_value(default_value):
+                return True
+        return False
+
+    def _default_overload_parameter_sets(self, parameters):
+        if not parameters:
+            return [parameters]
+
+        first_default_index = None
+        for i, p in enumerate(parameters):
+            if p.get("default_value") is not None:
+                first_default_index = i
+                break
+
+        if first_default_index is None:
+            return [parameters]
+
+        if not self._needs_default_overload(parameters):
+            return [parameters]
+
+        return [parameters[:n] for n in range(first_default_index, len(parameters) + 1)]
+
+    def _generate_py_args_string(self, parameters, include_defaults=True):
         if not parameters:
             return ""
 
@@ -251,12 +525,58 @@ class Generator:
         for p in parameters:
             arg_str = f'py::arg("{p["name"]}")'
 
-            if p["default_value"] is not None:
+            if include_defaults and p["default_value"] is not None:
                 default_value = p["default_value"].strip()
                 if default_value.startswith("="):
                     default_value = default_value[1:].strip()
 
-                default_value = self._process_default_value(default_value, p["type"])
+                raw_default_value = default_value
+                function_replacement = self._get_function_replacement(p["type"], p.get("raw_type", None))
+                if function_replacement and raw_default_value == "{}":
+                    default_value = "py::function()"
+                else:
+                    default_value = self._process_default_value(default_value, p["type"])
+                if (
+                    "::" in default_value
+                    and not default_value.startswith("sf::")
+                    and not default_value.startswith("std::")
+                    and not default_value.startswith("py::")
+                    and not default_value.startswith("(sf::")
+                    and not default_value.startswith("(std::")
+                    and not default_value.startswith("(py::")
+                ):
+                    optional_pattern = r"^std::optional<([^<>]+)>$"
+                    match_ = re.match(optional_pattern, p["type"])
+                    if match_:
+                        default_value = self._process_default_value(default_value, match_.group(1))
+                if (
+                    "::" in default_value
+                    and not default_value.startswith("sf::")
+                    and not default_value.startswith("std::")
+                    and not default_value.startswith("py::")
+                    and not default_value.startswith("(sf::")
+                    and not default_value.startswith("(std::")
+                    and not default_value.startswith("(py::")
+                ):
+                    clean_param_type = self._extract_clean_type_name(p["type"])
+                    if "|" in default_value:
+                        has_brackets = default_value.startswith("(") and default_value.endswith(")")
+                        brackets_pattern = r"^\((.*)\)$"
+                        match_ = re.match(brackets_pattern, default_value)
+                        if match_:
+                            default_value = match_.group(1).strip()
+                        results = []
+                        for str_ in default_value.split("|"):
+                            str_ = str_.strip()
+                            if "::" in str_ and not str_.startswith("sf::") and not str_.startswith("std::"):
+                                results.append(f"{clean_param_type}(sf::{str_})")
+                            else:
+                                results.append(str_)
+                        default_value = "|".join(results)
+                        if has_brackets:
+                            default_value = f"({default_value})"
+                    else:
+                        default_value = f"{clean_param_type}(sf::{default_value})"
                 arg_str += f" = {default_value}"
 
             arg_strings.append(arg_str)
@@ -272,6 +592,10 @@ class Generator:
         if default_value == "{}":
             clean_type = self._extract_clean_type_name(param_type)
             return f"{clean_type}()"
+
+        qualified_callable = self._qualify_unqualified_default_callable(default_value, param_type)
+        if qualified_callable:
+            return qualified_callable
 
         if "::" in default_value and not default_value.startswith("std::"):
             corrected_value = self._correct_namespace_in_default_value(default_value, param_type)
@@ -310,6 +634,70 @@ class Generator:
         clean_type = clean_type.replace("&", "").replace("*", "").strip()
         return clean_type
 
+    def _extract_namespace_prefix(self, param_type):
+        clean_type = self._extract_clean_type_name(param_type)
+        if "::" not in clean_type:
+            return ""
+        parts = [p for p in clean_type.split("::") if p]
+        if len(parts) < 2:
+            return ""
+        return "::".join(parts[:-1])
+
+    def _qualify_unqualified_default_callable(self, default_value, param_type):
+        if not default_value or "::" in default_value:
+            return None
+
+        match = re.match(r"^\s*([A-Za-z_]\w*)\s*\(", default_value)
+        if not match:
+            return None
+
+        callable_name = match.group(1)
+        if callable_name in {
+            "static_cast",
+            "reinterpret_cast",
+            "const_cast",
+            "dynamic_cast",
+            "sizeof",
+            "alignof",
+        }:
+            return None
+
+        namespace_prefix = self._extract_namespace_prefix(param_type)
+        if not namespace_prefix:
+            return None
+
+        start, end = match.span(1)
+        return f"{default_value[:start]}{namespace_prefix}::{default_value[start:end]}{default_value[end:]}"
+
+    def _is_top_level_const_field_type(self, cpp_type):
+        if not cpp_type:
+            return False
+
+        normalized = re.sub(r"\s+", " ", cpp_type).strip()
+        if not normalized:
+            return False
+
+        if re.search(r"\bconst\b\s*$", normalized):
+            return True
+
+        if normalized.startswith("const "):
+            tail = normalized[len("const ") :].strip()
+            if "*" in tail:
+                return False
+            return True
+
+        return False
+
+    def _is_pointer_to_const_field_type(self, cpp_type):
+        if not cpp_type:
+            return False
+
+        normalized = re.sub(r"\s+", " ", cpp_type).strip()
+        if "*" not in normalized:
+            return False
+
+        return normalized.startswith("const ") or bool(re.search(r"\bconst\b\s*\*", normalized))
+
     def _correct_namespace_in_default_value(self, default_value, param_type):
         param_type_clean = self._extract_clean_type_name(param_type)
 
@@ -347,6 +735,8 @@ class Generator:
         callargs = []
         for p in parameters:
             specific_replacement = self._get_specific_type_replacement(p["type"], p.get("raw_type", None))
+            if not specific_replacement:
+                specific_replacement = self._get_function_replacement(p["type"], p.get("raw_type", None))
             if specific_replacement:
                 _, call_expr_template = specific_replacement
                 call_expr = call_expr_template.replace("DATA", p["name"])
@@ -377,6 +767,8 @@ class Generator:
             arg2_type = arg2_param.get("type", "")
 
             specific_replacement = self._get_specific_type_replacement(arg2_type)
+            if not specific_replacement:
+                specific_replacement = self._get_function_replacement(arg2_type)
             if specific_replacement:
                 _, call_expr_template = specific_replacement
                 arg2 = call_expr_template.replace("DATA", arg2_name)
@@ -452,8 +844,10 @@ class Generator:
         class_type_keyword = "struct" if cls["kind"] == "STRUCT_DECL" else "class"
         class_var = f"v_{self._norm_typename(full_class_name)}"
 
+        self._push_cpp_scope(f"{full_class_name}::")
         if cls.get("deleted", False):
             print(f"Skipping deleted {class_type_keyword}: {full_class_name}")
+            self._pop_cpp_scope()
             return
 
         holder_str = ""
@@ -523,41 +917,50 @@ class Generator:
                         continue
 
                     params = c.get("parameters", [])
-                    if len(params) == 0:
-                        f.write(
-                            f"{indent}{class_var}.def(py::init<>(){self._get_docstring_parse(c)}); // Default constructor\n"
-                        )
-                        continue
-                    need_switch = False
-                    for p in params:
-                        if self._get_specific_type_replacement(p["type"], p.get("raw_type", None)):
-                            need_switch = True
-                            break
-                        if self._find_replace_type(p["type"]):
-                            need_switch = True
-                            break
-                        if self._check_specific_return_type(p["type"]):
-                            need_switch = True
-                            break
+                    param_sets = self._default_overload_parameter_sets(params)
+                    for sub_params in param_sets:
+                        force_lambda = len(param_sets) > 1
+                        include_defaults = not force_lambda
 
-                    def_args = self._lambda_argument_string(params)
-                    call_args = self._get_forward_call_arguments(params)
-                    py_args_str = self._generate_py_args_string(params)
-
-                    if need_unique:
-                        f.write(
-                            f"{indent}{class_var}.def(py::init([]({def_args}) {{ return std::make_unique<{full_class_name}>({call_args}); }}){self._get_docstring_parse(c)}{py_args_str});\n"
-                        )
-                    else:
-                        if need_switch:
+                        if len(sub_params) == 0 and len(params) == 0:
                             f.write(
-                                f"{indent}{class_var}.def(py::init([]({def_args}) {{ return new {full_class_name}({call_args}); }}){self._get_docstring_parse(c)}{py_args_str});\n"
+                                f"{indent}{class_var}.def(py::init<>(){self._get_docstring_parse(c)}); // Default constructor\n"
+                            )
+                            continue
+
+                        need_switch = force_lambda
+                        for p in sub_params:
+                            if self._get_specific_type_replacement(p["type"], p.get("raw_type", None)):
+                                need_switch = True
+                                break
+                            if self._get_function_replacement(p["type"], p.get("raw_type", None)):
+                                need_switch = True
+                                break
+                            if self._find_replace_type(p["type"]):
+                                need_switch = True
+                                break
+                            if self._check_specific_return_type(p["type"]):
+                                need_switch = True
+                                break
+
+                        def_args = self._lambda_argument_string(sub_params)
+                        call_args = self._get_forward_call_arguments(sub_params)
+                        py_args_str = self._generate_py_args_string(sub_params, include_defaults=include_defaults)
+
+                        if need_unique:
+                            f.write(
+                                f"{indent}{class_var}.def(py::init([]({def_args}) {{ return std::make_unique<{full_class_name}>({call_args}); }}){self._get_docstring_parse(c)}{py_args_str});\n"
                             )
                         else:
-                            def_args = self._lambda_argument_string_for_default_constructor(params)
-                            f.write(
-                                f"{indent}{class_var}.def(py::init<{def_args}>(){self._get_docstring_parse(c)}{py_args_str});\n"
-                            )
+                            if need_switch:
+                                f.write(
+                                    f"{indent}{class_var}.def(py::init([]({def_args}) {{ return new {full_class_name}({call_args}); }}){self._get_docstring_parse(c)}{py_args_str});\n"
+                                )
+                            else:
+                                def_args = self._lambda_argument_string_for_default_constructor(sub_params)
+                                f.write(
+                                    f"{indent}{class_var}.def(py::init<{def_args}>(){self._get_docstring_parse(c)}{py_args_str});\n"
+                                )
 
             if has_public_copy_ctor:
                 f.write(
@@ -583,10 +986,18 @@ class Generator:
             if c["kind"] == "FIELD_DECL" and c.get("access") == "public":
                 field_name = c["name"]
                 return_type = c.get("type", "void")
+                top_level_const = self._is_top_level_const_field_type(return_type)
+                pointer_to_const = self._is_pointer_to_const_field_type(return_type)
+                is_readonly_field = c.get("readonly", False) or top_level_const
+                if pointer_to_const and not top_level_const:
+                    is_readonly_field = False
                 return_sample = self._check_specific_return_type(return_type)
-                if return_sample:
+                helper = return_sample[1] if return_sample else ""
+                if helper:
+                    if is_readonly_field and helper in ["def_string_property", "def_vector_string_property"]:
+                        helper = helper + "_readonly"
                     f.write(
-                        f'{indent}{return_sample[1]}({class_var}, "{field_name}", &{full_class_name}::{field_name}{self._get_docstring_parse(c)});\n'
+                        f'{indent}{helper}({class_var}, "{field_name}", &{full_class_name}::{field_name}{self._get_docstring_parse(c)});\n'
                     )
                 else:
                     jump = False
@@ -597,9 +1008,31 @@ class Generator:
                                 break
                     if jump:
                         continue
-                    f.write(
-                        f'{indent}{class_var}.def_readwrite("{field_name}", &{full_class_name}::{field_name}{self._get_docstring_parse(c)});\n'
-                    )
+                    if is_readonly_field:
+                        f.write(
+                            f'{indent}{class_var}.def_readonly("{field_name}", &{full_class_name}::{field_name}{self._get_docstring_parse(c)});\n'
+                        )
+                    else:
+                        f.write(
+                            f'{indent}{class_var}.def_readwrite("{field_name}", &{full_class_name}::{field_name}{self._get_docstring_parse(c)});\n'
+                        )
+
+        const_method_overloads_to_skip = set()
+        method_overload_presence = {}
+        for c in cls.get("children", []):
+            if c["kind"] != "CXX_METHOD" or c.get("access") != "public":
+                continue
+            if c.get("static", False):
+                continue
+            key = self._method_overload_key(c)
+            seen = method_overload_presence.setdefault(key, {"const": False, "nonconst": False})
+            if c.get("const_method", False):
+                seen["const"] = True
+            else:
+                seen["nonconst"] = True
+        for key, seen in method_overload_presence.items():
+            if seen["const"] and seen["nonconst"]:
+                const_method_overloads_to_skip.add(key)
 
         for c in cls.get("children", []):
             if c["kind"] == "CXX_METHOD" and c.get("access") == "public":
@@ -612,9 +1045,11 @@ class Generator:
 
                 name = c["name"]
                 params = c.get("parameters", [])
-                py_args_str = self._generate_py_args_string(params)
                 return_type = c.get("return_type", "void")
                 full_return_type = c.get("full_return_type", return_type)
+
+                if c.get("const_method", False) and self._method_overload_key(c) in const_method_overloads_to_skip:
+                    continue
 
                 if name in IGNORE_LIST:
                     print(f"Ignoring method in IGNORE_LIST: {full_class_name}::{name}")
@@ -633,6 +1068,7 @@ class Generator:
                 elif is_binary:
                     pyname = BINARY_OPERATOR_MAP[name]
                     op = name[len("operator") :]
+                    py_args_str = self._generate_py_args_string(params)
                     all_args = (
                         f"{full_class_name}& self, {self._lambda_argument_string(params)}"
                         if params
@@ -655,22 +1091,29 @@ class Generator:
                         )
                 else:
                     pyname = name
-                    def_args = self._lambda_argument_string(params)
-                    callcode = self._function_forward_call(
-                        full_class_name, name, params, is_static=c.get("static", False)
-                    )
-                    if c.get("static", False):
-                        f.write(
-                            f'{indent}{class_var}.def_static("{pyname}", []({def_args}) {{ return {callcode}; }}{self._get_docstring_parse(c)}{py_args_str});\n'
+                    param_sets = self._default_overload_parameter_sets(params)
+                    force_overloads = len(param_sets) > 1
+                    for sub_params in param_sets:
+                        include_defaults = not force_overloads
+                        def_args = self._lambda_argument_string(sub_params)
+                        py_args_str = self._generate_py_args_string(sub_params, include_defaults=include_defaults)
+                        callcode = self._function_forward_call(
+                            full_class_name, name, sub_params, is_static=c.get("static", False)
                         )
-                    else:
-                        all_args = f"{full_class_name}& self, {def_args}" if def_args else f"{full_class_name}& self"
-                        return_sample = self._check_specific_return_type(return_type)
-                        if return_sample:
-                            callcode = return_sample[0].replace("DATA", callcode)
-                        f.write(
-                            f'{indent}{class_var}.def("{pyname}", []({all_args}) {{ return {callcode}; }}{self._get_docstring_parse(c)}{py_args_str});\n'
-                        )
+                        if c.get("static", False):
+                            f.write(
+                                f'{indent}{class_var}.def_static("{pyname}", []({def_args}) {{ return {callcode}; }}{self._get_docstring_parse(c)}{py_args_str});\n'
+                            )
+                        else:
+                            all_args = (
+                                f"{full_class_name}& self, {def_args}" if def_args else f"{full_class_name}& self"
+                            )
+                            return_sample = self._check_specific_return_type(return_type)
+                            if return_sample:
+                                callcode = return_sample[0].replace("DATA", callcode)
+                            f.write(
+                                f'{indent}{class_var}.def("{pyname}", []({all_args}) {{ return {callcode}; }}{self._get_docstring_parse(c)}{py_args_str});\n'
+                            )
 
         for c in cls.get("children", []):
             if c["kind"] == "ENUM_DECL" and c.get("access") == "public":
@@ -715,6 +1158,8 @@ class Generator:
                 arg2_name = arg2_param["name"]
                 arg2_type = arg2_param["type"]
                 specific_replacement = self._get_specific_type_replacement(arg2_type)
+                if not specific_replacement:
+                    specific_replacement = self._get_function_replacement(arg2_type)
                 if specific_replacement:
                     _, call_expr_template = specific_replacement
                     arg2 = call_expr_template.replace("DATA", arg2_name)
@@ -725,6 +1170,7 @@ class Generator:
                 f.write(
                     f'{indent}{class_var}.def("{pyname}", []({all_args}) {{ {lambda_body} }}{py_args_str});  // from global binary operator\n'
                 )
+        self._pop_cpp_scope()
 
     def _process_type(self, typ, all_class_types):
         if not typ:
@@ -755,28 +1201,34 @@ class Generator:
             print(f"Ignoring function due to parameter type: {namespace_prefix}{name}")
             return
 
+        self._push_cpp_scope(namespace_prefix)
         params = func.get("parameters", [])
-        def_args = self._lambda_argument_string(params)
-        py_args_str = self._generate_py_args_string(params)
+        param_sets = self._default_overload_parameter_sets(params)
+        force_overloads = len(param_sets) > 1
 
         return_type = func.get("return_type", "void")
-
         full_func_name = f"{namespace_prefix}{func['name']}"
-        call_args = self._get_forward_call_arguments(params)
 
-        lambda_body = f"{full_func_name}({call_args})"
+        for sub_params in param_sets:
+            include_defaults = not force_overloads
+            def_args = self._lambda_argument_string(sub_params)
+            py_args_str = self._generate_py_args_string(sub_params, include_defaults=include_defaults)
 
-        return_sample = self._check_specific_return_type(return_type)
-        if return_sample:
-            lambda_body = return_sample[0].replace("DATA", lambda_body)
+            call_args = self._get_forward_call_arguments(sub_params)
+            lambda_body = f"{full_func_name}({call_args})"
 
-        if return_type != "void":
-            lambda_body = f"return {lambda_body}"
-        lambda_body = f"{lambda_body};"
+            return_sample = self._check_specific_return_type(return_type)
+            if return_sample:
+                lambda_body = return_sample[0].replace("DATA", lambda_body)
 
-        f.write(
-            f'{indent}{module_var}.def("{func["name"]}", []({def_args}) {{ {lambda_body} }}{self._get_docstring_parse(func)}{py_args_str}); // Outer class function \n'
-        )
+            if return_type != "void":
+                lambda_body = f"return {lambda_body}"
+            lambda_body = f"{lambda_body};"
+
+            f.write(
+                f'{indent}{module_var}.def("{func["name"]}", []({def_args}) {{ {lambda_body} }}{self._get_docstring_parse(func)}{py_args_str}); // Outer class function \n'
+            )
+        self._pop_cpp_scope()
 
     def _handle_free_operators(self, items, all_class_types, bind_map=None, namespace_prefix=""):
         if bind_map is None:

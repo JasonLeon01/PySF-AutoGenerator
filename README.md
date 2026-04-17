@@ -1,6 +1,6 @@
 # PySFML-AutoGenerator
 
-This project automatically generates PyBind11 binding files for SFML 3.0.2, enabling Python developers to use SFML graphics library seamlessly.
+This project automatically generates PyBind11 binding files for SFML 3.1.0, enabling Python developers to use SFML graphics library seamlessly.
 
 ## Prerequisites
 
@@ -9,7 +9,7 @@ This project automatically generates PyBind11 binding files for SFML 3.0.2, enab
 - **LLVM**: Must be installed on your system
 
 ## Setup Instructions
-Download `SFML 3.0.2` source code from: https://github.com/SFML/SFML/archive/refs/tags/3.0.2.zip
+Download `SFML 3.1.0` source code from: https://github.com/SFML/SFML/archive/refs/tags/3.1.0.zip
 
 Extract the downloaded zip file
 

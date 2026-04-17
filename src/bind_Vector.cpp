@@ -8,6 +8,7 @@ void bind_Vector(py::module &m_sf) {
     bind_Vector2T_Explicit_Template<float>(m_sf, "Vector2f");
 
     bind_Vector3T<int>(m_sf, "Vector3i");
+    bind_Vector3T<unsigned int>(m_sf, "Vector3u");
     bind_Vector3T<bool>(m_sf, "Vector3b");
 
     bind_Vector3T_Explicit_Template<float>(m_sf, "Vector3f");

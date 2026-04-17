@@ -24,6 +24,8 @@ REPLACE_TYPE = {
     "std::filesystem::path": "std::string",
 }
 SPECIFIC_TYPE = {
+    "std::vector<std::vector<sf::String>>": ["std::vector<std::vector<std::string>>", "toVectorVectorUTF8String(DATA)"],
+    "std::vector<sf::String>": ["std::vector<std::string>", "toVectorUTF8String(DATA)"],
     "sf::String": ["std::string", "toSFString(DATA)"],
     "void*": ["py::buffer", "static_cast<std::uint8_t*>(DATA.request().ptr)"],
     "short*": ["std::vector<short>&", "DATA.data()"],
@@ -38,7 +40,6 @@ SPECIFIC_TYPE = {
     "sf::priv::Matrix<4, 4>*": ["std::vector<sf::priv::Matrix<4, 4>>&", "DATA.data()"],
     "sf::Vertex*": ["std::vector<sf::Vertex>&", "DATA.data()"],
     "unsigned char*": ["std::vector<std::uint8_t>&", "DATA.data()"],
-    "std::function<": ["py::function", "wrap_effect_processor(DATA)"],
     "char*": ["std::string&", "DATA.data()"],
     "wchar_t*": ["std::wstring&", "DATA.data()"],
     "WindowHandle": [
@@ -49,6 +50,8 @@ SPECIFIC_TYPE = {
 IGNORE_TYPE = ["VkInstance_T*", "std::locale", "char32_t*"]
 IGNORE_RETURN_TYPE = ["GlFunctionPointer"]
 SPECIFIC_RETURN_TYPE = {
+    "std::vector<std::vector<sf::String>>": ["toVectorVectorUTF8String(DATA)", "def_vector_vector_string_property"],
+    "std::vector<sf::String>": ["toVectorUTF8String(DATA)", "def_vector_string_property"],
     "String": ["toUTF8String(DATA)", "def_string_property"],
     "WindowHandle": ["reinterpret_cast<uintptr_t>(DATA)", ""],
 }
@@ -79,11 +82,16 @@ SPECIAL_REPLACE = {
         "v_sfShader",
         "py::init<std::string, std::string, std::string>()",
     ): "// Pass construction from memory GLSL code text.",
-    ("v_sfPacket", '"__rshift__", [](sf::Packet& self, std::string data)'): "// Pass std::string data to sf::Packet.__rshift__",
+    (
+        "v_sfPacket",
+        '"__rshift__", [](sf::Packet& self, std::string data)',
+    ): "// Pass std::string data to sf::Packet.__rshift__",
 }
 READWRITE_IGNORE = {"sf::SoundStream::Chunk": ["samples"]}
 
 SELF_INCLUDE_FILES = [
+    "./include/string_utils.hpp",
+    "./include/wrap_utils.hpp",
     "./include/utils.hpp",
     "./include/bind_Vector.hpp",
     "./include/bind_Rect.hpp",

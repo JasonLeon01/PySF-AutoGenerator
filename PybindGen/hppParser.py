@@ -17,6 +17,8 @@ INTERESTED_KINDS = (
     clang.cindex.CursorKind.NAMESPACE,
     clang.cindex.CursorKind.ENUM_DECL,
     clang.cindex.CursorKind.VAR_DECL,
+    clang.cindex.CursorKind.TYPEDEF_DECL,
+    clang.cindex.CursorKind.TYPE_ALIAS_DECL,
 )
 LITERAL_KINDS = (
     clang.cindex.CursorKind.INTEGER_LITERAL,
@@ -191,6 +193,15 @@ class Parser:
             return "std::string"
         return type_spelling
 
+    def _normalize_cstddef_types(self, type_spelling):
+        if not type_spelling:
+            return type_spelling
+
+        result = type_spelling
+        result = re.sub(r"(?<![:\w])::size_t(?!\w)", "std::size_t", result)
+        result = re.sub(r"(?<![:\w])size_t(?!\w)", "std::size_t", result)
+        return result
+
     def _type_spelling_with_std_floor(self, type_obj):
         if not type_obj:
             return ""
@@ -225,7 +236,7 @@ class Parser:
                     underlying_type = candidate
             if underlying_type:
                 if self._is_std_spelling(underlying_type.spelling):
-                    return self._normalize_std_string_like(underlying_type.spelling)
+                    return self._normalize_cstddef_types(self._normalize_std_string_like(underlying_type.spelling))
                 current_type = underlying_type
                 continue
 
@@ -237,12 +248,12 @@ class Parser:
             current_type = canonical_type
 
         if std_candidate:
-            return self._normalize_std_string_like(std_candidate)
+            return self._normalize_cstddef_types(self._normalize_std_string_like(std_candidate))
 
         canonical_type = type_obj.get_canonical()
         if canonical_type and canonical_type.spelling:
-            return self._normalize_std_string_like(canonical_type.spelling)
-        return self._normalize_std_string_like(type_obj.spelling)
+            return self._normalize_cstddef_types(self._normalize_std_string_like(canonical_type.spelling))
+        return self._normalize_cstddef_types(self._normalize_std_string_like(type_obj.spelling))
 
     def _get_function_parameters(self, node):
         params = []
@@ -282,7 +293,7 @@ class Parser:
 
     def _get_return_type(self, node):
         if hasattr(node, "result_type"):
-            return self._normalize_std_string_like(node.result_type.spelling)
+            return self._normalize_cstddef_types(self._normalize_std_string_like(node.result_type.spelling))
         return ""
 
     def _get_full_return_type(self, node):
@@ -464,6 +475,11 @@ class Parser:
         if node.kind == clang.cindex.CursorKind.FIELD_DECL:
             node_dict["type"] = self._normalize_std_string_like(node.type.spelling)
             node_dict["access"] = self._get_access_specifier(node)
+            if hasattr(node, "type") and hasattr(node.type, "is_const_qualified"):
+                try:
+                    node_dict["readonly"] = node.type.is_const_qualified()
+                except Exception:
+                    pass
 
         if node.kind in (
             clang.cindex.CursorKind.CXX_METHOD,
@@ -479,6 +495,8 @@ class Parser:
                 node_dict["static"] = node.is_static_method()
             elif hasattr(node, "is_static"):
                 node_dict["static"] = node.is_static()
+            if node.kind == clang.cindex.CursorKind.CXX_METHOD and hasattr(node, "is_const_method"):
+                node_dict["const_method"] = node.is_const_method()
 
         children = []
         for c in node.get_children():
@@ -520,5 +538,8 @@ class Parser:
 
         if node.kind == clang.cindex.CursorKind.VAR_DECL:
             node_dict["type"] = node.type.spelling
+
+        if node.kind in (clang.cindex.CursorKind.TYPEDEF_DECL, clang.cindex.CursorKind.TYPE_ALIAS_DECL):
+            node_dict["type"] = self._type_spelling_with_std_floor(node.underlying_typedef_type)
 
         return node_dict

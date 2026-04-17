@@ -5,12 +5,15 @@
 #include "SFML/Graphics.hpp"
 #include "SFML/Audio.hpp"
 #include "SFML/Network.hpp"
+#include "string_utils.hpp"
+#include "wrap_utils.hpp"
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
-#include <pybind11/functional.h>
-#include <pybind11/buffer_info.h>
-#include <filesystem>
+#include <cstddef>
+#include <cstdint>
+#include <functional>
 #include <vector>
+#include <filesystem>
 
 #ifdef _WIN32
     #ifndef WIN32_LEAN_AND_MEAN
@@ -20,25 +23,6 @@
 #endif
 
 namespace py = pybind11;
-
-sf::String toSFString(const std::string& str);
-
-std::string toUTF8String(const sf::String& str);
-
-template <typename Class>
-void def_string_property(py::class_<Class> &cls,
-                         const char *name,
-                         sf::String Class::*field,
-                         const std::string& docstring = "") {
-    cls.def_property(
-        name,
-        [field](const Class &self) { return toUTF8String(self.*field); },
-        [field](Class &self, const std::string &value) { self.*field = toSFString(value); },
-        docstring.c_str()
-    );
-}
-
-sf::SoundSource::EffectProcessor wrap_effect_processor(py::function func);
 
 template <typename T>
 void add_copy_support(py::class_<T>& cls) {
