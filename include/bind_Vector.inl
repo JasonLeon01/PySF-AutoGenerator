@@ -2,6 +2,7 @@
 #include "SFML/System/Vector2.hpp"
 #include "SFML/System/Vector3.hpp"
 #include "SFML/Graphics/Glsl.hpp"
+#include <type_traits>
 
 template <typename T>
 void bind_VectorTCommon(py::class_<T>& v_sfVector, int dimension) {
@@ -17,7 +18,7 @@ void bind_VectorTCommon(py::class_<T>& v_sfVector, int dimension) {
     v_sfVector.def("__sub__", [](T& self, T right) { return self - right; }, py::arg("right"));  // from global binary operator
     v_sfVector.def("__eq__", [](T& self, T right) { return self == right; }, py::arg("right"));  // from global binary operator
     v_sfVector.def("__ne__", [](T& self, T right) { return self != right; }, py::arg("right"));  // from global binary operator
-    if constexpr (std::is_floating_point_v<T>) {
+    if constexpr (std::is_same_v<T, sf::Vector2f> || std::is_same_v<T, sf::Vector3f>) {
         v_sfVector.def("length", [](T& self) { return self.length(); }, "\\brief Length of the vector <i><b>(floating-point)</b></i>.\n\nIf you are not interested in the actual length, but only in comparisons, consider using `lengthSquared()`.");
         v_sfVector.def("normalized", [](T& self) { return self.normalized(); }, "\\brief Vector with same direction but length 1 <i><b>(floating-point)</b></i>.\n\n\\pre `*this` is no zero vector.");
     }
@@ -31,6 +32,10 @@ void bind_Vector2T_Common(py::class_<sf::Vector2<T>>& v_sfVector2, const std::st
     v_sfVector2.def_readwrite("x", &sf::Vector2<T>::x);
     v_sfVector2.def_readwrite("y", &sf::Vector2<T>::y);
     v_sfVector2.def("unpack", [](sf::Vector2<T>& self) { return py::make_tuple(self.x, self.y); });
+    v_sfVector2.def("__mul__", [](sf::Vector2<T>& self, T right) { return self * right; }, py::arg("right"));  // from global binary operator
+    v_sfVector2.def("__imul__", [](sf::Vector2<T>& self, T right) { return self *= right; }, py::arg("right"));  // from global binary operator
+    v_sfVector2.def("__truediv__", [](sf::Vector2<T>& self, T right) { return self / right; }, py::arg("right"));  // from global binary operator
+    v_sfVector2.def("__itruediv__", [](sf::Vector2<T>& self, T right) { return self /= right; }, py::arg("right"));  // from global binary operator
     v_sfVector2.def("__hash__", [](sf::Vector2<T>& self) { std::size_t seed = 0; hash_combine(seed, self.x); hash_combine(seed, self.y); return seed; });
     v_sfVector2.def("__repr__", [name](sf::Vector2<T>& self) {
         std::stringstream ss;
@@ -55,6 +60,10 @@ void bind_Vector3T_Common(py::class_<sf::Vector3<T>>& v_sfVector3, const std::st
     v_sfVector3.def_readwrite("y", &sf::Vector3<T>::y);
     v_sfVector3.def_readwrite("z", &sf::Vector3<T>::z);
     v_sfVector3.def("unpack", [](sf::Vector3<T>& self) { return py::make_tuple(self.x, self.y, self.z); });
+    v_sfVector3.def("__mul__", [](sf::Vector2<T>& self, T right) { return self * right; }, py::arg("right"));  // from global binary operator
+    v_sfVector3.def("__imul__", [](sf::Vector3<T>& self, T right) { return self *= right; }, py::arg("right"));  // from global binary operator
+    v_sfVector3.def("__truediv__", [](sf::Vector3<T>& self, T right) { return self / right; }, py::arg("right"));  // from global binary operator
+    v_sfVector3.def("__itruediv__", [](sf::Vector3<T>& self, T right) { return self /= right; }, py::arg("right"));  // from global binary operator
     v_sfVector3.def("__hash__", [](sf::Vector3<T>& self) { std::size_t seed = 0; hash_combine(seed, self.x); hash_combine(seed, self.y); hash_combine(seed, self.z); return seed; });
     v_sfVector3.def("__repr__", [name](sf::Vector3<T>& self) {
         std::stringstream ss;

@@ -150,6 +150,7 @@ SELF_INCLUDE_FILES = [
     "./include/string_utils.hpp",
     "./include/wrap_utils.hpp",
     "./include/utils.hpp",
+    "./include/bind_Vector.hpp",
     "./include/bind_Rect.hpp",
     "./include/bind_Matrix.hpp",
     "./include/bind_Handle.hpp",
@@ -284,10 +285,10 @@ if __name__ == "__main__":
 
     print(f"Writing {len(to_write_files)} files to include folder.")
 
+    to_write_files.remove("bind_Vector.hpp")
     to_write_files.insert(to_write_files.index("System/bind_Angle.hpp") + 1, "bind_Vector.hpp")
     PybindGen.generate_pybind_main(
         to_write_files,
         os.path.join(project_root, output_folder, "main.cpp"),
     )
-
     PybindGen.generate_cmakelists(to_write_files, SELF_INCLUDE_FILES, python_version)
