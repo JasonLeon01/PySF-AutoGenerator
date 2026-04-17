@@ -1,0 +1,7 @@
+    v_sfVersion.def("__repr__", [](sf::Version& self) {
+        std::stringstream ss;
+        ss << "SFML Version:\n";
+        ss << "Version: " << self.string << "\n";
+        ss << (self.isRelease ? "Release Version" : "Development Version") << "\n";
+        return ss.str();
+    });

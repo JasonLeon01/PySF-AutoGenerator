@@ -152,8 +152,13 @@ def generate_pybind_main(source_files, output_filename):
         print(f"An unexpected error occurred when generating {output_filename}: {e}")
 
 
-def generate_cmakelists(source_files, self_files, python_version):
+def generate_cmakelists(in_source_files, in_self_files, python_version):
     output_filename = "CMakeLists.txt"
+    source_files = in_source_files.copy()
+    self_files = in_self_files.copy()
+    source_files.insert(source_files.index("System/bind_Angle.hpp") + 1, "bind_Vector.hpp")
+    self_files.remove("bind_Vector.hpp")
+
     try:
         sources_arr = []
         mm_sources_arr = []

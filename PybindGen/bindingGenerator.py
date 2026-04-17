@@ -817,7 +817,7 @@ class Generator:
 
     def _get_docstring_parse(self, item):
         if "doc" in item:
-            docs = item.get("doc")
+            docs: dict[str, str] = item.get("doc")
             if "text" in docs:
                 text = (
                     docs.get("text")
@@ -826,6 +826,7 @@ class Generator:
                     .replace("\n", "\\n")
                     .replace("\\\\code", "```cpp")
                     .replace("\\\\endcode", "```")
+                    .replace("\\\\param", "- \\\\param")
                 )
                 return f', "{text}"'
         return ""

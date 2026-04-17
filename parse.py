@@ -285,6 +285,8 @@ if __name__ == "__main__":
 
     print(f"Writing {len(to_write_files)} files to include folder.")
 
+    to_write_files.remove("bind_Vector.hpp")
+    to_write_files.insert(to_write_files.index("System/bind_Angle.hpp") + 1, "bind_Vector.hpp")
     PybindGen.generate_pybind_main(
         to_write_files,
         os.path.join(project_root, output_folder, "main.cpp"),
