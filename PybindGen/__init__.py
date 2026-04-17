@@ -156,8 +156,6 @@ def generate_cmakelists(in_source_files, in_self_files, python_version):
     output_filename = "CMakeLists.txt"
     source_files = in_source_files.copy()
     self_files = in_self_files.copy()
-    source_files.insert(source_files.index("System/bind_Angle.hpp") + 1, "bind_Vector.hpp")
-    self_files.remove("bind_Vector.hpp")
 
     try:
         sources_arr = []
