@@ -538,6 +538,36 @@ class Parser:
 
         if node.kind == clang.cindex.CursorKind.VAR_DECL:
             node_dict["type"] = node.type.spelling
+            node_dict["value"] = self._get_qualified_name(node)
+
+            readonly = False
+            if hasattr(node, "type") and hasattr(node.type, "is_const_qualified"):
+                try:
+                    readonly = bool(node.type.is_const_qualified())
+                except Exception:
+                    readonly = False
+
+            if not readonly:
+                try:
+                    tokens = [t.spelling for t in node.get_tokens()]
+                    if "constexpr" in tokens or "const" in tokens:
+                        readonly = True
+                    elif (
+                        "static" in tokens
+                        and node.semantic_parent
+                        and node.semantic_parent.kind
+                        in (
+                            clang.cindex.CursorKind.CLASS_DECL,
+                            clang.cindex.CursorKind.STRUCT_DECL,
+                        )
+                        and node_dict.get("access") == "public"
+                    ):
+                        readonly = True
+                except Exception:
+                    pass
+
+            if readonly:
+                node_dict["readonly"] = True
 
         if node.kind in (clang.cindex.CursorKind.TYPEDEF_DECL, clang.cindex.CursorKind.TYPE_ALIAS_DECL):
             node_dict["type"] = self._type_spelling_with_std_floor(node.underlying_typedef_type)

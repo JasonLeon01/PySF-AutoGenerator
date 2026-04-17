@@ -1,10 +1,2 @@
     v_sfIpAddress.def("__copy__", [](const sf::IpAddress& self) { return sf::IpAddress(self); });
     v_sfIpAddress.def("__deepcopy__", [](const sf::IpAddress& self, py::dict) { return sf::IpAddress(self); }, py::arg("memo"));
-    v_sfIpAddress.attr("Any") = sf::IpAddress::Any;
-    v_sfIpAddress.attr("LocalHost") = sf::IpAddress::LocalHost;
-    v_sfIpAddress.attr("Broadcast") = sf::IpAddress::Broadcast;
-    v_sfIpAddress.attr("AnyV4") = sf::IpAddress::AnyV4;
-    v_sfIpAddress.attr("LocalHostV4") = sf::IpAddress::LocalHostV4;
-    v_sfIpAddress.attr("BroadcastV4") = sf::IpAddress::BroadcastV4;
-    v_sfIpAddress.attr("AnyV6") = sf::IpAddress::AnyV6;
-    v_sfIpAddress.attr("LocalHostV6") = sf::IpAddress::LocalHostV6;

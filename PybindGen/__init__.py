@@ -11,22 +11,24 @@ from .utils import scan_hpp_files
 
 
 __all__ = ["Parser", "Generator"]
-__version__ = "1.1.0"
+__version__ = "1.2.0"
 __author__ = "JasonLeon"
 __copyright__ = "Copyright (c) 2026, JasonLeon"
 __license__ = "MIT"
 
-MAIN_DOC = "\
-This is an SFML binding library for Python.\\n\
-It provides a set of Python bindings for the SFML library.\\n\
-The bindings are generated using the pybind11 library.\\n\
-\\n\
-SFML is multi-media\\n\
-SFML provides a simple interface to the various components of your PC, to ease the development of games and multimedia applications. It is composed of five modules: system, window, graphics, audio and network.\\n\
-\\n\
-SFML is multi-platform\\n\
-With SFML, your application can compile and run out of the box on the most common operating systems: Windows, Linux, macOS and Android & iOS (with limitations).\\n\
-"
+MAIN_DOC = "\\n".join(
+    [
+        "This is an SFML binding library for Python.",
+        "It provides a set of Python bindings for the SFML library.",
+        "The bindings are generated using the pybind11 library.",
+        "",
+        "SFML is multi-media",
+        "SFML provides a simple interface to the various components of your PC, to ease the development of games and multimedia applications. It is composed of five modules: system, window, graphics, audio and network.",
+        "",
+        "SFML is multi-platform",
+        "With SFML, your application can compile and run out of the box on the most common operating systems: Windows, Linux, macOS and Android & iOS (with limitations).",
+    ]
+)
 
 clang_path = None
 if sys.platform == "darwin":
@@ -61,6 +63,7 @@ if not clang_path:
 
 clang.cindex.Config.set_library_file(clang_path)
 os.environ.setdefault("PYSF_LIBCLANG_PATH", clang_path)
+
 
 def generate_binding_from_hpp(
     common_module_name,
@@ -172,7 +175,9 @@ def generate_cmakelists(source_files, self_files, python_version):
         with open(f"{output_filename}.in", encoding="utf-8") as template, open(
             output_filename, "w", encoding="utf-8"
         ) as out:
-            cmake_content = template.read().format(sources=sources, mm_sources=mm_sources, python_version=python_version)
+            cmake_content = template.read().format(
+                sources=sources, mm_sources=mm_sources, python_version=python_version
+            )
             out.write(cmake_content)
 
         print(f"CMakeLists.txt generated successfully: {output_filename}")

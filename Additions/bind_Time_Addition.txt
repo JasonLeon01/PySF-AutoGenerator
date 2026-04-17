@@ -3,4 +3,3 @@
         ss << "Time(" << self.asSeconds() << "s)";
         return ss.str();
     });
-    v_sfTime.attr("Zero") = sf::Time::Zero;

@@ -63,29 +63,86 @@ REPLACE_DEFAULT = {
     " = sf::Style::Default": " = 7",
 }
 IGNORED_MODULE = ["priv"]
+TAB_STR = "    "
 SPECIAL_REPLACE = {
     (
         "v_sfRenderTexture",
         '"getTexture"',
-    ): 'v_sfRenderTexture.def("getTexture", [](sf::RenderTexture &self) -> const sf::Texture& { return self.getTexture(); }, "\\\\brief Get a read-only reference to the target texture\\n\\nAfter drawing to the render-texture and calling Display,\\nyou can retrieve the updated texture using this function,\\nand draw it using a sprite (for example).\\nThe internal `sf::Texture` of a render-texture is always the\\nsame instance, so that it is possible to call this function\\nonce and keep a reference to the texture even after it is\\nmodified.\\n\\n\\\\return Const reference to the texture", py::return_value_policy::reference_internal);',
+    ): '{}v_sfRenderTexture.def("getTexture", [](sf::RenderTexture &self) -> const sf::Texture& {{ return self.getTexture(); }},"{}", py::return_value_policy::reference_internal);'.format(
+        TAB_STR,
+        "\\n".join(
+            [
+                "\\\\brief Get a read-only reference to the target texture",
+                "",
+                "After drawing to the render-texture and calling Display,",
+                "you can retrieve the updated texture using this function,",
+                "and draw it using a sprite (for example).",
+                "The internal `sf::Texture` of a render-texture is always the",
+                "same instance, so that it is possible to call this function",
+                "once and keep a reference to the texture even after it is",
+                "modified.",
+                "",
+                "\\\\return Const reference to the texture",
+            ]
+        ),
+    ),
     (
         "v_sfTransform",
         '"getMatrix"',
-    ): 'v_sfTransform.def("getMatrix", [](sf::Transform& self) { const float* m = self.getMatrix(); return std::vector<float>(m, m + 16); }, "\\\\brief Return the transform as a 4x4 matrix\\n\\nThis function returns a pointer to an array of 16 floats\\ncontaining the transform elements as a 4x4 matrix, which\\nis directly compatible with OpenGL functions.\\n\\n\\\\code\\nsf::Transform transform = ...;\\nglLoadMatrixf(transform.getMatrix());\\n\\\\endcode\\n\\n\\\\return Pointer to a 4x4 matrix");',
+    ): '{}v_sfTransform.def("getMatrix", [](sf::Transform& self) {{ const float* m = self.getMatrix(); return std::vector<float>(m, m + 16); }},"{}");'.format(
+        TAB_STR,
+        "\\n".join(
+            [
+                "\\\\brief Return the transform as a 4x4 matrix",
+                "",
+                "This function returns a pointer to an array of 16 floats",
+                "containing the transform elements as a 4x4 matrix, which",
+                "is directly compatible with OpenGL functions.",
+                "\\\\code",
+                "sf::Transform transform = ...;",
+                "glLoadMatrixf(transform.getMatrix());",
+                "\\\\endcode",
+                "",
+                "\\\\return Pointer to a 4x4 matri",
+            ]
+        ),
+    ),
     (
         "v_sfImage",
         '"getPixelsPtr"',
-    ): 'v_sfImage.def("getPixelsArray", [](sf::Image& self) { const std::uint8_t* pixels = self.getPixelsPtr(); auto size = self.getSize(); return std::vector<std::uint8_t>(pixels, pixels + size.x * size.y * 4); }, "\\\\brief Get a read-only pointer to the array of pixels\\n\\nThe returned value points to an array of RGBA pixels made of\\n8 bit integer components. The size of the array is\\n`width * height * 4 (getSize().x * getSize().y * 4)`.\\nWarning: the returned pointer may become invalid if you\\nmodify the image, so you should never store it for too long.\\nIf the image is empty, a null pointer is returned.\\n\\n\\\\return Read-only pointer to the array of pixels"); // Return a copy of the pixels array, the original method is getPixelsPtr()',
-    ("v_sfShader", "py::init<std::string, sf::Shader::Type>()"): "// Pass construction from memory GLSL code text.",
-    ("v_sfShader", "py::init<std::string, std::string>()"): "// Pass construction from memory GLSL code text.",
+    ): '{}v_sfImage.def("getPixelsArray", [](sf::Image& self) {{ const std::uint8_t* pixels = self.getPixelsPtr(); auto size = self.getSize(); return std::vector<std::uint8_t>(pixels, pixels + size.x * size.y * 4); }}, "{}"); // Return a copy of the pixels array, the original method is getPixelsPtr()'.format(
+        TAB_STR,
+        "\\n".join(
+            [
+                "\\\\brief Get a read-only pointer to the array of pixels",
+                "",
+                "The returned value points to an array of RGBA pixels made of",
+                "8 bit integer components. The size of the array is",
+                "`width * height * 4 (getSize().x * getSize().y * 4)`.",
+                "Warning: the returned pointer may become invalid if you",
+                "modify the image, so you should never store it for too long.",
+                "If the image is empty, a null pointer is returned.",
+                "",
+                "\\\\return Read-only pointer to the array of pixels",
+            ]
+        ),
+    ),
+    (
+        "v_sfShader",
+        "py::init<std::string, sf::Shader::Type>()",
+    ): f"{TAB_STR}// Pass construction from memory GLSL code text.",
+    (
+        "v_sfShader",
+        "py::init<std::string, std::string>()",
+    ): f"{TAB_STR}// Pass construction from memory GLSL code text.",
     (
         "v_sfShader",
         "py::init<std::string, std::string, std::string>()",
-    ): "// Pass construction from memory GLSL code text.",
+    ): f"{TAB_STR}// Pass construction from memory GLSL code text.",
     (
         "v_sfPacket",
         '"__rshift__", [](sf::Packet& self, std::string data)',
-    ): "// Pass std::string data to sf::Packet.__rshift__",
+    ): f"{TAB_STR}// Pass std::string data to sf::Packet.__rshift__",
 }
 READWRITE_IGNORE = {"sf::SoundStream::Chunk": ["samples"]}
 

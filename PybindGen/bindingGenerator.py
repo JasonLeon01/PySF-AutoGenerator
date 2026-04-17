@@ -819,7 +819,14 @@ class Generator:
         if "doc" in item:
             docs = item.get("doc")
             if "text" in docs:
-                text = docs.get("text").replace("\\", "\\\\").replace('"', '\\"').replace("\n", "\\n")
+                text = (
+                    docs.get("text")
+                    .replace("\\", "\\\\")
+                    .replace('"', '\\"')
+                    .replace("\n", "\\n")
+                    .replace("\\\\code", "```cpp")
+                    .replace("\\\\endcode", "```")
+                )
                 return f', "{text}"'
         return ""
 
