@@ -1,6 +1,7 @@
 import os
 import sys
 import glob
+import traceback
 from pathlib import Path
 from ctypes.util import find_library
 import clang.cindex
@@ -147,15 +148,13 @@ def generate_pybind_main(source_files, output_filename):
 
         print(f"Generated {output_filename}")
     except IOError as e:
-        print(f"Error writing to {output_filename}: {e}")
+        print(f"Error writing to {output_filename}: {e} {traceback.format_exc()}")
     except Exception as e:
-        print(f"An unexpected error occurred when generating {output_filename}: {e}")
+        print(f"An unexpected error occurred when generating {output_filename}: {e} {traceback.format_exc()}")
 
 
-def generate_cmakelists(in_source_files, in_self_files, python_version):
+def generate_cmakelists(source_files, self_files, python_version):
     output_filename = "CMakeLists.txt"
-    source_files = in_source_files.copy()
-    self_files = in_self_files.copy()
 
     try:
         sources_arr = []
@@ -186,6 +185,6 @@ def generate_cmakelists(in_source_files, in_self_files, python_version):
         print(f"CMakeLists.txt generated successfully: {output_filename}")
 
     except IOError as e:
-        print(f"Error writing to {output_filename}: {e}")
+        print(f"Error writing to {output_filename}: {e} {traceback.format_exc()}")
     except Exception as e:
-        print(f"An unexpected error occurred when generating {output_filename}: {e}")
+        print(f"An unexpected error occurred when generating {output_filename}: {e} {traceback.format_exc()}")
