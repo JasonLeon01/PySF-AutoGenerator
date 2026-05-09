@@ -9,7 +9,15 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
-set(CMAKE_OSX_DEPLOYMENT_TARGET "12.0" CACHE STRING "Minimum macOS version to build for")
+if(APPLE)
+    if(CMAKE_SYSTEM_NAME STREQUAL "iOS")
+        set(CMAKE_OSX_DEPLOYMENT_TARGET "15.0" CACHE STRING "Minimum iOS version to build for")
+        set(CMAKE_OSX_ARCHITECTURES "arm64" CACHE STRING "iOS architecture")
+        set(BUILD_SHARED_LIBS OFF CACHE BOOL "Build static SFML libs for iOS" FORCE)
+    else()
+        set(CMAKE_OSX_DEPLOYMENT_TARGET "12.0" CACHE STRING "Minimum macOS version to build for")
+    endif()
+endif()
 
 find_package(Python3 REQUIRED COMPONENTS Interpreter Development)
 
@@ -46,7 +54,9 @@ set(PYBIND11_FINDPYTHON ON)
 find_package(pybind11 REQUIRED PATHS ${{PYBIND11_CMAKE_DIR}})
 
 set(SFML_DIR ${{CMAKE_SOURCE_DIR}}/SFML)
-set(BUILD_SHARED_LIBS ON CACHE BOOL "Build shared SFML libs" FORCE)
+if(NOT CMAKE_SYSTEM_NAME STREQUAL "iOS")
+    set(BUILD_SHARED_LIBS ON CACHE BOOL "Build shared SFML libs" FORCE)
+endif()
 add_subdirectory(${{SFML_DIR}})
 
 include_directories(${{CMAKE_SOURCE_DIR}}/include)
@@ -79,11 +89,28 @@ set_target_properties(pysf PROPERTIES
 )
 
 if(APPLE)
-    set_target_properties(pysf PROPERTIES
-        BUILD_WITH_INSTALL_RPATH TRUE
-        INSTALL_RPATH "@loader_path"
-        MACOSX_RPATH TRUE
-    )
+    if(CMAKE_SYSTEM_NAME STREQUAL "iOS")
+        set_target_properties(pysf PROPERTIES
+            XCODE_ATTRIBUTE_IPHONEOS_DEPLOYMENT_TARGET "15.0"
+            XCODE_ATTRIBUTE_TARGETED_DEVICE_FAMILY "1,2"
+        )
+        target_link_libraries(pysf PRIVATE
+            "-framework UIKit"
+            "-framework Foundation"
+            "-framework OpenGLES"
+            "-framework CoreGraphics"
+            "-framework QuartzCore"
+            "-framework CoreMotion"
+            "-framework AudioToolbox"
+            "-framework AVFoundation"
+        )
+    else()
+        set_target_properties(pysf PROPERTIES
+            BUILD_WITH_INSTALL_RPATH TRUE
+            INSTALL_RPATH "@loader_path"
+            MACOSX_RPATH TRUE
+        )
+    endif()
 endif()
 
 if(NOT CMAKE_CONFIGURATION_TYPES)
@@ -99,7 +126,7 @@ else()
     target_compile_options(pysf PRIVATE /O2 /DNDEBUG)
 endif()
 
-if(APPLE AND CMAKE_BUILD_TYPE STREQUAL "Release")
+if(APPLE AND NOT CMAKE_SYSTEM_NAME STREQUAL "iOS" AND CMAKE_BUILD_TYPE STREQUAL "Release")
     add_custom_command(TARGET pysf POST_BUILD
         COMMAND strip -x $<TARGET_FILE:pysf>
     )

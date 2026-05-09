@@ -1,6 +1,13 @@
 .vscode/
 .DS_Store
 .venv/
+.vscode
+.cursor
+.claude
+.trae
+.codebuddy
+.clangd
+.clang-format
 *.pyc
 __pycache__/
 CMakeLists.txt

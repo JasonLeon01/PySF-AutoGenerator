@@ -27,6 +27,41 @@ Rename the extracted folder to `SFML`
     ./build.sh
     ```
 
+- On iOS (cross-compile from macOS)
+
+    **Requirements:**
+    - macOS with Xcode installed (including iOS SDK)
+    - A Python 3.12 static library built for iOS arm64
+
+    **Step 1: Prepare iOS Python framework**
+
+    Create the `ios_python` directory in the project root and place a Python 3.12 iOS build inside it.
+
+    Option A - [Python-Apple-support](https://github.com/beeware/Python-Apple-support/releases/tag/3.12-b2) (recommended):
+    ```bash
+    mkdir -p ios_python
+    # Download Python-3.12-iOS-support.b*.tar.gz
+    tar xzf Python-3.12-iOS-support.*.tar.gz -C ios_python/
+    ```
+    Expected layout: `ios_python/Python.xcframework/ios-arm64/`
+
+    Option B - [python-build-standalone](https://github.com/astral-sh/python-build-standalone/releases/tag/20231002):
+    ```bash
+    mkdir -p ios_python
+    # Download cpython-3.12.*-aarch64-apple-ios-install_only.tar.gz
+    tar xzf cpython-3.12.*-aarch64-apple-ios-*.tar.gz -C ios_python/
+    ```
+    Expected layout: `ios_python/include/python3.12/` and `ios_python/lib/libpython3.12.a`
+
+    **Step 2: Build**
+    ```bash
+    chmod +x ./build_ios.sh
+    chmod +x ./ProjCMake_ios.sh
+    ./build_ios.sh
+    ```
+
+    Output will be in `result_ios/pysf/`. The build produces static libraries (`.a`) by default. On iOS, extension modules must either be statically linked into the Python interpreter or packaged as signed Embedded Frameworks within the App Bundle.
+
 ## Additions Folder
 The `Additions` folder contains additional binding code for declarations found in SFML's `.inl` files. These files follow the naming pattern `bind_{classname}_Addition.txt` and are automatically appended to the end of the generated binding code during the build process.
 

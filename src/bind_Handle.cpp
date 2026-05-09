@@ -3,6 +3,8 @@
 void bind_Handle(py::module &m_sf) {
     #if defined(SFML_SYSTEM_WINDOWS)
         py::class_<HWND__>(m_sf, "WindowHandle");
+    #elif defined(SFML_SYSTEM_IOS)
+        py::class_<void*>(m_sf, "WindowHandle");
     #elif defined(SFML_SYSTEM_MACOS)
         py::class_<void*>(m_sf, "WindowHandle");
     #elif defined(SFML_SYSTEM_LINUX)
