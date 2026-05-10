@@ -17,3 +17,6 @@ output/
 build/
 result/
 PySFEnv/
+ios_python/
+build_ios/
+result_ios/

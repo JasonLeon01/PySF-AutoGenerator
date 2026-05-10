@@ -19,7 +19,11 @@ if(APPLE)
     endif()
 endif()
 
-find_package(Python3 REQUIRED COMPONENTS Interpreter Development)
+if(CMAKE_SYSTEM_NAME STREQUAL "iOS")
+    find_package(Python3 REQUIRED COMPONENTS Interpreter)
+else()
+    find_package(Python3 REQUIRED COMPONENTS Interpreter Development)
+endif()
 
 execute_process(
     COMMAND "${{Python3_EXECUTABLE}}" -m pybind11 --cmakedir
@@ -39,7 +43,7 @@ if(NOT PYBIND11_RESULT EQUAL 0 OR NOT EXISTS "${{PYBIND11_CMAKE_DIR}}")
 endif()
 
 if(NOT PYBIND11_RESULT EQUAL 0)
-    message(FATAL_ERROR 
+    message(FATAL_ERROR
         "Could not find pybind11 cmake config.\n"
         "Please ensure pybind11 is installed in the current environment:\n"
         "   ${{Python3_EXECUTABLE}} -m pip install pybind11\n"
@@ -50,8 +54,14 @@ endif()
 
 message(STATUS "Found pybind11 cmake dir: ${{PYBIND11_CMAKE_DIR}}")
 
-set(PYBIND11_FINDPYTHON ON)
-find_package(pybind11 REQUIRED PATHS ${{PYBIND11_CMAKE_DIR}})
+if(CMAKE_SYSTEM_NAME STREQUAL "iOS")
+    set(PYTHON_EXECUTABLE "${{Python3_EXECUTABLE}}" CACHE FILEPATH "" FORCE)
+    set(PYBIND11_FINDPYTHON OFF)
+else()
+    set(PYBIND11_FINDPYTHON ON)
+endif()
+set(pybind11_DIR ${{PYBIND11_CMAKE_DIR}})
+find_package(pybind11 CONFIG REQUIRED)
 
 set(SFML_DIR ${{CMAKE_SOURCE_DIR}}/SFML)
 if(NOT CMAKE_SYSTEM_NAME STREQUAL "iOS")
@@ -68,25 +78,43 @@ set(PYSF_SOURCES
 )
 
 if (APPLE)
-    list(APPEND PYSF_SOURCES 
+    list(APPEND PYSF_SOURCES
 {mm_sources}
     )
 endif()
 
-pybind11_add_module(pysf ${{PYSF_SOURCES}})
+if(CMAKE_SYSTEM_NAME STREQUAL "iOS")
+    add_library(pysf STATIC ${{PYSF_SOURCES}})
+    target_include_directories(pysf PRIVATE ${{Python3_INCLUDE_DIR}})
+    target_link_libraries(pysf PRIVATE pybind11::headers)
+else()
+    pybind11_add_module(pysf ${{PYSF_SOURCES}})
+endif()
 
-target_link_libraries(pysf PRIVATE
-    pybind11::module 
-    sfml-system
-    sfml-window
-    sfml-graphics
-    sfml-audio
-    sfml-network
-)
+if(CMAKE_SYSTEM_NAME STREQUAL "iOS")
+    target_link_libraries(pysf PRIVATE
+        sfml-system
+        sfml-window
+        sfml-graphics
+        sfml-audio
+        sfml-network
+    )
+else()
+    target_link_libraries(pysf PRIVATE
+        pybind11::module
+        sfml-system
+        sfml-window
+        sfml-graphics
+        sfml-audio
+        sfml-network
+    )
+endif()
 
-set_target_properties(pysf PROPERTIES
-    LIBRARY_OUTPUT_DIRECTORY ${{CMAKE_BINARY_DIR}}/bin
-)
+if(NOT CMAKE_SYSTEM_NAME STREQUAL "iOS")
+    set_target_properties(pysf PROPERTIES
+        LIBRARY_OUTPUT_DIRECTORY ${{CMAKE_BINARY_DIR}}/bin
+    )
+endif()
 
 if(APPLE)
     if(CMAKE_SYSTEM_NAME STREQUAL "iOS")

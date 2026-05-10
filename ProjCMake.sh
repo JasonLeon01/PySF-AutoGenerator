@@ -1,9 +1,9 @@
 #!/bin/zsh
 
-if [ -d build ]; then
-    rm -rf build
-fi
-mkdir build
+# if [ -d build ]; then
+#     rm -rf build
+# fi
+# mkdir build
 if [ -d result ]; then
     rm -rf result
 fi
