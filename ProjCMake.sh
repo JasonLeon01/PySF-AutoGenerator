@@ -1,9 +1,9 @@
 #!/bin/zsh
 
-# if [ -d build ]; then
-#     rm -rf build
-# fi
-# mkdir build
+if [ -d build ]; then
+    rm -rf build
+fi
+mkdir build
 if [ -d result ]; then
     rm -rf result
 fi
@@ -18,4 +18,6 @@ cp bin/*.so ../result/pysf/
 cp SFML/lib/*.dylib ../result/pysf/
 
 cd ..
+
+source PySFEnv/bin/activate
 python3 pyFilesGen.py

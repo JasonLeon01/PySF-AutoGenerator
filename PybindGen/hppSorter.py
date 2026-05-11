@@ -255,13 +255,38 @@ class Sorter:
                     is_strong_dependency = False
 
                     if cursor.kind == cindex.CursorKind.CXX_BASE_SPECIFIER:
+                        is_strong_dependency = True
+                        base_class_name = None
+
                         definition = cursor.get_definition()
                         if definition and definition.location and definition.location.file:
                             dependency_file = os.path.abspath(definition.location.file.name)
-                            is_strong_dependency = True
                             base_class_name = self._get_qualified_name(definition)
+                        if not dependency_file and cursor.type:
+                            type_qualified_name = self._get_type_qualified_name(cursor.type)
+                            if type_qualified_name:
+                                base_class_name = base_class_name or type_qualified_name
+                                dependency_file = self._find_type_definition_file(
+                                    type_qualified_name, current_file_path
+                                )
+
+                        if not dependency_file and cursor.spelling:
+                            raw_name = cursor.spelling
+                            for prefix in ("class ", "struct "):
+                                if raw_name.startswith(prefix):
+                                    raw_name = raw_name[len(prefix) :]
+                                    break
+                            base_class_name = base_class_name or raw_name
+                            dependency_file = self._find_type_definition_file(raw_name, current_file_path)
+
+                        if dependency_file:
                             print(
                                 f"    Inheritance dependency: {os.path.basename(current_file_path)} -> {os.path.basename(dependency_file)} (inherits from {base_class_name})"
+                            )
+                        else:
+                            print(
+                                f"    Warning: Failed to resolve base class file for {os.path.basename(current_file_path)} (base spelling: {cursor.spelling!r})",
+                                file=sys.stderr,
                             )
 
                     elif cursor.kind == cindex.CursorKind.FIELD_DECL:
@@ -406,10 +431,9 @@ class Sorter:
                             has_errors = True
                 if has_errors:
                     print(
-                        f"  Skipping dependency analysis for {header_file} due to critical parsing errors.",
+                        f"  Continuing dependency analysis for {os.path.basename(header_file)} despite parsing errors (AST is usually still usable for inheritance/type info).",
                         file=sys.stderr,
                     )
-                    continue
 
                 self._analyze_dependencies(tus[header_file])
 

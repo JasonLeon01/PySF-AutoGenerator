@@ -10,9 +10,8 @@ from .bindingGenerator import Generator
 from .hppSorter import Sorter
 from .utils import scan_hpp_files
 
-
 __all__ = ["Parser", "Generator"]
-__version__ = "1.2.0"
+__version__ = "1.2.1"
 __author__ = "JasonLeon"
 __copyright__ = "Copyright (c) 2026, JasonLeon"
 __license__ = "MIT"

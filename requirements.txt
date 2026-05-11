@@ -1,3 +1,4 @@
 clang==20.1.5
+libclang
 pybind11
 pybind11-stubgen

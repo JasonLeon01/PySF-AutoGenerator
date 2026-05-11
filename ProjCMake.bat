@@ -15,6 +15,8 @@ xcopy "SFML\bin\Release\*.dll" "..\result\pysf\" /Y
 xcopy "SFML\lib\Release\*.lib" "..\result\lib\" /Y
 
 cd ..
+
 xcopy /E /I /H /Y "required_libs\*.dll" "result\pysf\"
+call PySFEnv\Scripts\activate
 
 python pyFilesGen.py
