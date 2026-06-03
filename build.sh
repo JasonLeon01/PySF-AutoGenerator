@@ -1,10 +1,21 @@
 #!/bin/zsh
 
-if ! [ -d "PySFEnv" ]; then
-    python3.12 -m venv PySFEnv
+set -e
+
+if ! [ -f "versions.conf" ]; then
+    echo "versions.conf not found." >&2
+    exit 1
+fi
+
+set -a
+source ./versions.conf
+set +a
+
+if ! [ -f "PySFEnv/bin/activate" ]; then
+    echo "PySFEnv not found. Please run ./init.sh first." >&2
+    exit 1
 fi
 source PySFEnv/bin/activate
-pip install -r requirements.txt
 
 python3 parse.py
 

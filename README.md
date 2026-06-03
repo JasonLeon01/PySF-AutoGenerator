@@ -1,78 +1,84 @@
 # PySFML-AutoGenerator
 
-This project automatically generates PyBind11 binding files for SFML 3.1.0, enabling Python developers to use SFML graphics library seamlessly.
+This project automatically generates PyBind11 binding files for SFML, enabling Python developers to use SFML graphics library seamlessly.
 
 ## Prerequisites
 
 ### Software Requirements
-- **Python**: Version 3.12
+- **Python**: Version configured by `PYTHON_VERSION` in `versions.conf`
 - **LLVM**: Must be installed on your system
 
 ## Setup Instructions
-Download `SFML 3.1.0` source code from: https://github.com/SFML/SFML/archive/refs/tags/3.1.0.zip
-
-Extract the downloaded zip file
-
-Rename the extracted folder to `SFML`
+Configure `SFML_VERSION` and `PYTHON_VERSION` in `versions.conf`. The init scripts download the matching SFML source into `SFML/` if it is not already present.
 
 - On Windows
     ```bash
+    .\init.bat
     .\build.bat
+    .\collect.bat
     ```
 - On macOS
     Download `output-source` and decompress it.
     ```bash
-    chmod +x ./build.sh
-    chmod +x ./ProjCMake.sh
+    chmod +x *.sh
+    ./init.sh
     ./build.sh
+    ./collect.sh
     ```
+
+    Output will be in `output/result/pysf/`.
 
 - On iOS (cross-compile from macOS)
 
     **Requirements:**
     - macOS with Xcode installed (including iOS SDK)
-    - A Python 3.12 static library built for iOS arm64
+    - A Python static library built for iOS arm64 matching `PYTHON_VERSION`
 
     **Step 1: Prepare iOS Python framework**
 
-    Create the `ios_python` directory in the project root and place a Python 3.12 iOS build inside it.
+    Create the `ios_python` directory in the project root and place an iOS build matching `PYTHON_VERSION` inside it.
 
-    Option A - [Python-Apple-support](https://github.com/beeware/Python-Apple-support/releases/tag/3.12-b2) (recommended):
+    Option A - [Python-Apple-support](https://github.com/beeware/Python-Apple-support/releases) (recommended):
     ```bash
     mkdir -p ios_python
-    # Download Python-3.12-iOS-support.b*.tar.gz
-    tar xzf Python-3.12-iOS-support.*.tar.gz -C ios_python/
+    # Download Python-${PYTHON_VERSION}-iOS-support.b*.tar.gz
+    tar xzf Python-${PYTHON_VERSION}-iOS-support.*.tar.gz -C ios_python/
     ```
     Expected layout: `ios_python/Python.xcframework/ios-arm64/`
 
     Option B - [python-build-standalone](https://github.com/astral-sh/python-build-standalone/releases/tag/20231002):
     ```bash
     mkdir -p ios_python
-    # Download cpython-3.12.*-aarch64-apple-ios-install_only.tar.gz
-    tar xzf cpython-3.12.*-aarch64-apple-ios-*.tar.gz -C ios_python/
+    # Download cpython-${PYTHON_VERSION}.*-aarch64-apple-ios-install_only.tar.gz
+    tar xzf cpython-${PYTHON_VERSION}.*-aarch64-apple-ios-*.tar.gz -C ios_python/
     ```
-    Expected layout: `ios_python/include/python3.12/` and `ios_python/lib/libpython3.12.a`
+    Expected layout: `ios_python/include/python${PYTHON_VERSION}/` and `ios_python/lib/libpython${PYTHON_VERSION}.a`
 
     **Step 2: Build**
     ```bash
-    chmod +x ./build_ios.sh
-    chmod +x ./ProjCMake_ios.sh
+    chmod +x *.sh
+    ./init.sh
     ./build_ios.sh
     ```
 
-    Output will be in `result_ios/pysf/`. The build produces static libraries (`.a`) by default. On iOS, extension modules must either be statically linked into the Python interpreter or packaged as signed Embedded Frameworks within the App Bundle.
+    **Step 3: Collect**
+    ```bash
+    ./collect_ios.sh
+    ```
+
+    Output will be in `output/result_ios/pysf/`. The build produces static libraries (`.a`) by default. On iOS, extension modules must either be statically linked into the Python interpreter or packaged as signed Embedded Frameworks within the App Bundle.
 
 ## Additions Folder
 The `Additions` folder contains additional binding code for declarations found in SFML's `.inl` files. These files follow the naming pattern `bind_{classname}_Addition.txt` and are automatically appended to the end of the generated binding code during the build process.
 
 ## Notes
 - Ensure all prerequisites are properly installed before running the build script
-- Make sure Python 3.12 is accessible via the `py -3.12` or `python3.12` command
+- Make sure the configured Python version is accessible via the `py -<version>` or `python<version>` command
 - LLVM must be properly configured in your system PATH
 
 ## Troubleshooting
 - Verify that LLVM is correctly installed and accessible
-- Check that all Python dependencies are installed for the correct Python version (3.12)
+- Check that all Python dependencies are installed for the configured Python version
 
 ### Common Errors
 - **Error:** clang.cindex.LibclangError: [WinError 193] %1

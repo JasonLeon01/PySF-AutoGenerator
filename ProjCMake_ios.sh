@@ -2,10 +2,21 @@
 
 set -e
 
+if ! [ -f "versions.conf" ]; then
+    echo "versions.conf not found." >&2
+    exit 1
+fi
+
+set -a
+source ./versions.conf
+set +a
+
+: ${PYTHON_VERSION:?"PYTHON_VERSION not set in versions.conf."}
+
 IOS_DEPLOY_TARGET="15.0"
 IOS_ARCH="arm64"
 IOS_PYTHON_DIR="$(pwd)/ios_python"
-IOS_PYTHON_VERSION="3.12"
+IOS_PYTHON_VERSION="${PYTHON_VERSION}"
 
 IOS_PYTHON_INCLUDE=""
 IOS_PYTHON_LIB=""
@@ -13,8 +24,8 @@ PYTHON3_EXECUTABLE=""
 
 if [ -x "$(pwd)/PySFEnv/bin/python" ]; then
     PYTHON3_EXECUTABLE="$(pwd)/PySFEnv/bin/python"
-elif command -v python3.12 >/dev/null 2>&1; then
-    PYTHON3_EXECUTABLE="$(command -v python3.12)"
+elif command -v "python${PYTHON_VERSION}" >/dev/null 2>&1; then
+    PYTHON3_EXECUTABLE="$(command -v "python${PYTHON_VERSION}")"
 elif command -v python3 >/dev/null 2>&1; then
     PYTHON3_EXECUTABLE="$(command -v python3)"
 fi
@@ -48,20 +59,31 @@ if [ -z "${PYTHON3_EXECUTABLE}" ]; then
     echo "Could not locate a Python executable for configuring pybind11." >&2
     echo "Expected one of:" >&2
     echo "  - ./PySFEnv/bin/python (virtualenv created by build scripts)" >&2
-    echo "  - python3.12 on PATH" >&2
+    echo "  - python${PYTHON_VERSION} on PATH" >&2
     echo "  - python3 on PATH" >&2
     exit 1
 fi
 
-if [ -d build_ios ]; then
-    rm -rf build_ios
+if ! [ -d output ]; then
+    echo "output not found. Please run ./build_ios.sh to generate bindings first." >&2
+    exit 1
 fi
-mkdir build_ios
-if [ -d result_ios ]; then
-    rm -rf result_ios
+
+mkdir -p output/include output/src
+cp -R include/. output/include/
+cp -R src/. output/src/
+
+if [ -d output/SFML ]; then
+    rm -rf output/SFML
 fi
-mkdir -p result_ios/pysf
-cd build_ios
+mkdir -p output/SFML
+rsync -a --exclude .git SFML/ output/SFML/
+
+if [ -d output/build_ios ]; then
+    rm -rf output/build_ios
+fi
+mkdir output/build_ios
+cd output/build_ios
 
 cmake -G Xcode \
     -DCMAKE_SYSTEM_NAME=iOS \
@@ -78,16 +100,4 @@ cmake -G Xcode \
 
 cmake --build . --config Release -- -quiet
 
-setopt null_glob
-if [ -d "SFML/lib/Release" ]; then
-    for lib_file in SFML/lib/Release/*.a; do
-        cp "$lib_file" ../result_ios/pysf/
-    done
-fi
-unsetopt null_glob
-
-find . -name "*.a" -path "*/Release-iphoneos/*" -exec cp {} ../result_ios/pysf/ \; 2>/dev/null
-find . -name "*.so" -path "*/Release-iphoneos/*" -exec cp {} ../result_ios/pysf/ \; 2>/dev/null
-find . -name "*.dylib" -path "*/Release-iphoneos/*" -exec cp {} ../result_ios/pysf/ \; 2>/dev/null
-
-cd ..
+cd ../..

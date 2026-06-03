@@ -152,8 +152,8 @@ def generate_pybind_main(source_files, output_filename):
         print(f"An unexpected error occurred when generating {output_filename}: {e} {traceback.format_exc()}")
 
 
-def generate_cmakelists(source_files, self_files, python_version):
-    output_filename = "CMakeLists.txt"
+def generate_cmakelists(source_files, self_files, python_version, output_filename="output/CMakeLists.txt"):
+    template_filename = "CMakeLists.txt.in"
 
     try:
         sources_arr = []
@@ -169,11 +169,14 @@ def generate_cmakelists(source_files, self_files, python_version):
                 if os.path.exists(f'src/{filename.split(".")[0]}.mm'):
                     mm_sources_arr.append(f'        "src/{filename.split(".")[0]}.mm"')
             else:
-                sources_arr.append(f'    "output/src/{filename.split(".")[0]}.cpp"')
+                sources_arr.append(f'    "src/{filename.split(".")[0]}.cpp"')
         sources = "\n".join(sources_arr)
         mm_sources = "\n".join(mm_sources_arr)
 
-        with open(f"{output_filename}.in", encoding="utf-8") as template, open(
+        output_dir = os.path.dirname(output_filename)
+        if output_dir:
+            os.makedirs(output_dir, exist_ok=True)
+        with open(template_filename, encoding="utf-8") as template, open(
             output_filename, "w", encoding="utf-8"
         ) as out:
             cmake_content = template.read().format(

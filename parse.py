@@ -5,13 +5,32 @@ from pathlib import Path
 from clang import cindex
 import PybindGen
 
+
+def readVersionsConfig(configPath="versions.conf"):
+    versions = {}
+    if not os.path.exists(configPath):
+        return versions
+
+    with open(configPath, "r", encoding="utf-8") as file:
+        for line in file:
+            line = line.strip()
+            if not line or line.startswith("#") or "=" not in line:
+                continue
+            key, value = line.split("=", 1)
+            versions[key.strip()] = value.strip()
+    return versions
+
+
+versions_config = readVersionsConfig()
 hpp_root = "SFML/include"
 includes = "-ISFML/include"
 repo_root = "SFML"
 parse_folders = ["Audio", "Graphics", "Network", "System", "Window"]
 output_folder = "output"
 cpp_version = "c++20"
-python_version = "3.12.0"
+python_version = os.environ.get("PYTHON_VERSION") or versions_config.get("PYTHON_VERSION")
+if not python_version:
+    raise RuntimeError("PYTHON_VERSION not set in versions.conf")
 common_module_name = "sf"
 ignored_macros = [
     "SFML_GRAPHICS_API",

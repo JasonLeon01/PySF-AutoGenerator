@@ -3,10 +3,14 @@ import sys
 from pathlib import Path
 import subprocess
 
+result_dir = Path(os.environ.get("PYSF_RESULT_DIR", "output/result"))
+pysf_dir = result_dir / "pysf"
+sys.path.insert(0, str(pysf_dir.resolve()))
+
 if sys.platform == "win32":
-    import result.pysf.pysf as sf
+    import pysf as sf
 elif sys.platform == "darwin":
-    import result.pysf.pysf as sf
+    import pysf as sf
 else:
     print("Unsupported operating system")
     sys.exit(1)
@@ -40,15 +44,16 @@ def replace_pyi(pyi_path):
 
 if __name__ == "__main__":
     attrs = [attr for attr in dir(sf) if not (attr.startswith("__") and attr.endswith("__"))]
-    with open("result/pysf/__init__.py", "w") as file:
+    with open(pysf_dir / "__init__.py", "w") as file:
+        file.write("from . import pysf as _pysf\n")
         file.write("from .pysf import (\n")
         for attr in attrs:
             file.write(f"   {attr},\n")
         file.write(")\n")
-        file.write("__doc__ = pysf.__doc__\n")
+        file.write("__doc__ = _pysf.__doc__\n")
     print("Successfully generated __init__.py")
 
-    subprocess.run([sys.executable, "-m", "pybind11_stubgen", "--output-dir=.", "pysf"], cwd="result/pysf")
-    for path in collect_pyi_paths("result/pysf/pysf"):
+    subprocess.run([sys.executable, "-m", "pybind11_stubgen", "--output-dir=.", "pysf"], cwd=pysf_dir)
+    for path in collect_pyi_paths(pysf_dir / "pysf"):
         replace_pyi(path)
     print("Successfully generated pyi")

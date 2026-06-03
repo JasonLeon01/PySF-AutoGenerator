@@ -70,11 +70,10 @@ endif()
 add_subdirectory(${{SFML_DIR}})
 
 include_directories(${{CMAKE_SOURCE_DIR}}/include)
-include_directories(${{CMAKE_SOURCE_DIR}}/output/include)
 
 set(PYSF_SOURCES
 {sources}
-    "output/main.cpp"
+    "main.cpp"
 )
 
 if (APPLE)
