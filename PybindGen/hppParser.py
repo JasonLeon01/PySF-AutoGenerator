@@ -53,6 +53,10 @@ class Parser:
             for diag in tu.diagnostics:
                 print(f"  - {diag}")
         target_file = os.path.abspath(real_path)
+        self._include_root = os.path.abspath(hpp_root)
+        self._surface_type_qualifications = {}
+        self._ambiguous_surface_type_names = set()
+        self._collect_surface_type_qualifications(tu.cursor)
         self._root_items = []
         for c in tu.cursor.get_children():
             d = self._node_to_dict(c, target_file)
@@ -84,6 +88,50 @@ class Parser:
             else:
                 return parent_name
         return cursor.spelling
+
+    def _is_in_include_root(self, cursor):
+        if not cursor.location or not cursor.location.file:
+            return False
+        file_path = os.path.abspath(cursor.location.file.name)
+        try:
+            return os.path.commonpath([file_path, self._include_root]) == self._include_root
+        except ValueError:
+            return False
+
+    def _remember_surface_type_qualification(self, name, qualified_name):
+        if not name or not qualified_name or not qualified_name.startswith("sf::"):
+            return
+
+        previous = self._surface_type_qualifications.get(name)
+        if previous and previous != qualified_name:
+            self._ambiguous_surface_type_names.add(name)
+            self._surface_type_qualifications.pop(name, None)
+            return
+
+        if name not in self._ambiguous_surface_type_names:
+            self._surface_type_qualifications[name] = qualified_name
+
+    def _collect_surface_type_qualifications(self, cursor):
+        if (
+            cursor.kind != clang.cindex.CursorKind.TRANSLATION_UNIT
+            and cursor.location
+            and cursor.location.file
+            and not self._is_in_include_root(cursor)
+        ):
+            return
+
+        if self._is_in_include_root(cursor) and cursor.kind in (
+            clang.cindex.CursorKind.CLASS_DECL,
+            clang.cindex.CursorKind.STRUCT_DECL,
+            clang.cindex.CursorKind.ENUM_DECL,
+            clang.cindex.CursorKind.NAMESPACE,
+            clang.cindex.CursorKind.TYPEDEF_DECL,
+            clang.cindex.CursorKind.TYPE_ALIAS_DECL,
+        ):
+            self._remember_surface_type_qualification(cursor.spelling, self._get_qualified_name(cursor))
+
+        for child in cursor.get_children():
+            self._collect_surface_type_qualifications(child)
 
     def _resolve_default_value(self, expr_cursor):
         children = list(expr_cursor.get_children())
@@ -177,6 +225,43 @@ class Parser:
         start, end = match.span(1)
         return f"{type_spelling[:start]}{qualified_name}{type_spelling[end:]}"
 
+    def _qualify_surface_type(self, type_spelling, qualified_name):
+        if not type_spelling or not qualified_name or "::" not in qualified_name:
+            return type_spelling
+
+        top_name = qualified_name.split("::")[-1]
+        pattern = rf"(?<![:\w]){re.escape(top_name)}(?!\w)"
+        return re.sub(pattern, qualified_name, type_spelling, count=1)
+
+    def _qualify_known_surface_types(self, type_spelling):
+        if not type_spelling:
+            return type_spelling
+
+        def replace(match):
+            name = match.group(1)
+            return self._surface_type_qualifications.get(name, name)
+
+        return re.sub(r"(?<![:\w])([A-Z]\w*)(?!\w)", replace, type_spelling)
+
+    def _template_argument_types(self, type_obj):
+        try:
+            count = type_obj.get_num_template_arguments()
+        except Exception:
+            return []
+
+        if count <= 0:
+            return []
+
+        args = []
+        for index in range(count):
+            try:
+                arg_type = type_obj.get_template_argument_type(index)
+            except Exception:
+                continue
+            if arg_type and arg_type.kind != clang.cindex.TypeKind.INVALID:
+                args.append(arg_type)
+        return args
+
     def _normalize_std_string_like(self, type_spelling):
         if not type_spelling:
             return type_spelling
@@ -206,54 +291,20 @@ class Parser:
         if not type_obj:
             return ""
 
-        current_type = type_obj
-        std_candidate = None
-        seen = set()
+        type_spelling = type_obj.spelling
+        type_decl = type_obj.get_declaration()
+        qualified_name = self._get_qualified_name(type_decl)
+        type_spelling = self._qualify_surface_type(type_spelling, qualified_name)
 
-        for _ in range(64):
-            current_spelling = current_type.spelling
-            seen_key = (str(current_type.kind), current_spelling)
-            if seen_key in seen:
-                break
-            seen.add(seen_key)
+        for arg_type in self._template_argument_types(type_obj):
+            arg_spelling = arg_type.spelling
+            qualified_arg_spelling = self._type_spelling_with_std_floor(arg_type)
+            if arg_spelling and qualified_arg_spelling and arg_spelling != qualified_arg_spelling:
+                type_spelling = type_spelling.replace(arg_spelling, qualified_arg_spelling)
 
-            if self._is_std_spelling(current_spelling):
-                std_candidate = self._prefer_std_spelling(std_candidate, current_spelling)
-
-            type_decl = current_type.get_declaration()
-            if self._is_std_cursor(type_decl):
-                qualified_name = self._get_qualified_name(type_decl)
-                qualified_current_spelling = self._qualify_std_top_level(current_spelling, qualified_name)
-                if current_spelling:
-                    std_candidate = self._prefer_std_spelling(std_candidate, qualified_current_spelling)
-                if qualified_name and self._is_std_spelling(qualified_name):
-                    std_candidate = self._prefer_std_spelling(std_candidate, qualified_name)
-
-            underlying_type = None
-            if type_decl and type_decl.kind.is_declaration():
-                candidate = type_decl.underlying_typedef_type
-                if candidate and candidate.kind != clang.cindex.TypeKind.INVALID:
-                    underlying_type = candidate
-            if underlying_type:
-                if self._is_std_spelling(underlying_type.spelling):
-                    return self._normalize_cstddef_types(self._normalize_std_string_like(underlying_type.spelling))
-                current_type = underlying_type
-                continue
-
-            canonical_type = current_type.get_canonical()
-            if not canonical_type:
-                break
-            if canonical_type.spelling == current_spelling:
-                break
-            current_type = canonical_type
-
-        if std_candidate:
-            return self._normalize_cstddef_types(self._normalize_std_string_like(std_candidate))
-
-        canonical_type = type_obj.get_canonical()
-        if canonical_type and canonical_type.spelling:
-            return self._normalize_cstddef_types(self._normalize_std_string_like(canonical_type.spelling))
-        return self._normalize_cstddef_types(self._normalize_std_string_like(type_obj.spelling))
+        type_spelling = self._qualify_known_surface_types(type_spelling)
+        type_spelling = type_spelling.replace("::sf::", "::")
+        return self._normalize_cstddef_types(self._normalize_std_string_like(type_spelling))
 
     def _get_function_parameters(self, node):
         params = []
@@ -570,6 +621,8 @@ class Parser:
                 node_dict["readonly"] = True
 
         if node.kind in (clang.cindex.CursorKind.TYPEDEF_DECL, clang.cindex.CursorKind.TYPE_ALIAS_DECL):
-            node_dict["type"] = self._type_spelling_with_std_floor(node.underlying_typedef_type)
+            node_dict["type"] = self._normalize_cstddef_types(
+                self._normalize_std_string_like(self._get_qualified_name(node))
+            )
 
         return node_dict

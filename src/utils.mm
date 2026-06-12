@@ -7,20 +7,21 @@
     #include <Cocoa/Cocoa.h>
 #endif
 
-sf::WindowHandle handleToSFMLHandle_mac(uintptr_t inQtHandle)
-{
-    if (!inQtHandle)
-        return nullptr;
+WindowHandle::WindowHandle(std::uintptr_t inQtHandle) {
+    if (!inQtHandle) {
+        nativeHandle = nullptr;
+        return;
+    }
 
     @autoreleasepool {
 #if TARGET_OS_IOS
         UIView* view = (__bridge UIView*)reinterpret_cast<void*>(inQtHandle);
         UIWindow* window = [view window];
-        return (__bridge sf::WindowHandle)window;
+        nativeHandle = (__bridge sf::WindowHandle)window;
 #else
         NSView* view = (__bridge NSView*)reinterpret_cast<void*>(inQtHandle);
         NSWindow* window = [view window];
-        return (__bridge sf::WindowHandle)window;
+        nativeHandle = (__bridge sf::WindowHandle)window;
 #endif
     }
 }

@@ -1,6 +1,5 @@
 #pragma once
 
-#include "SFML/Window/WindowHandle.hpp"
 #include "utils.hpp"
 
 namespace py = pybind11;

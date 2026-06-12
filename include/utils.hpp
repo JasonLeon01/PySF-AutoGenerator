@@ -24,16 +24,27 @@
 
 namespace py = pybind11;
 
+class WindowHandle {
+public:
+    explicit WindowHandle(std::uintptr_t nativeHandle);
+
+    static WindowHandle fromNative(sf::WindowHandle nativeHandle);
+
+    sf::WindowHandle getNativeHandle() const;
+    std::uintptr_t toInteger() const;
+
+    operator sf::WindowHandle() const;
+
+private:
+    explicit WindowHandle(sf::WindowHandle nativeHandle, int);
+
+    sf::WindowHandle nativeHandle;
+};
+
 template <typename T>
 void add_copy_support(py::class_<T>& cls);
 
 template<typename T>
 void hash_combine(std::size_t& seed, const T& val);
-
-sf::WindowHandle handleToSFMLHandle(uintptr_t qtWinId);
-
-#ifdef __APPLE__
-sf::WindowHandle handleToSFMLHandle_mac(uintptr_t qtWinId);
-#endif
 
 #include "utils.inl"

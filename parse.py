@@ -46,6 +46,7 @@ SPECIFIC_TYPE = {
     "std::vector<std::vector<sf::String>>": ["std::vector<std::vector<std::string>>", "toVectorVectorUTF8String(DATA)"],
     "std::vector<sf::String>": ["std::vector<std::string>", "toVectorUTF8String(DATA)"],
     "sf::String": ["std::string", "toSFString(DATA)"],
+    "String": ["std::string", "toSFString(DATA)"],
     "void*": ["py::buffer", "static_cast<std::uint8_t*>(DATA.request().ptr)"],
     "short*": ["std::vector<short>&", "DATA.data()"],
     "int*": ["std::vector<int>&", "DATA.data()"],
@@ -61,18 +62,16 @@ SPECIFIC_TYPE = {
     "unsigned char*": ["std::vector<std::uint8_t>&", "DATA.data()"],
     "char*": ["std::string&", "DATA.data()"],
     "wchar_t*": ["std::wstring&", "DATA.data()"],
-    "WindowHandle": [
-        "uintptr_t",
-        "handleToSFMLHandle(DATA)",
-    ],
+    "sf::WindowHandle": ["WindowHandle", "DATA"],
+    "WindowHandle": ["WindowHandle", "DATA"],
 }
-IGNORE_TYPE = ["VkInstance_T*", "std::locale", "char32_t*"]
+IGNORE_TYPE = ["VkInstance_T*", "VkInstance", "VkSurfaceKHR", "VkAllocationCallbacks", "std::locale", "char32_t*"]
 IGNORE_RETURN_TYPE = ["GlFunctionPointer"]
 SPECIFIC_RETURN_TYPE = {
     "std::vector<std::vector<sf::String>>": ["toVectorVectorUTF8String(DATA)", "def_vector_vector_string_property"],
     "std::vector<sf::String>": ["toVectorUTF8String(DATA)", "def_vector_string_property"],
     "String": ["toUTF8String(DATA)", "def_string_property"],
-    "WindowHandle": ["reinterpret_cast<uintptr_t>(DATA)", ""],
+    "WindowHandle": ["WindowHandle::fromNative(DATA)", ""],
 }
 REPLACE_DEFAULT = {
     " = sf::Style::None": " = 0",
