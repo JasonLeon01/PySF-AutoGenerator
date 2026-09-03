@@ -1,0 +1,362 @@
+name: Build packages
+
+run-name: Build PySF packages for ${{ github.ref_name }} @ ${{ github.sha }}
+
+on:
+  push:
+    branches:
+      - '**'
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  windows-vs2022:
+    name: Windows VS2022 x64
+    runs-on: windows-2022
+    timeout-minutes: 120
+    env:
+      CMAKE_GENERATOR: Visual Studio 17 2022
+      CMAKE_GENERATOR_PLATFORM: x64
+
+    steps:
+      - name: Checkout triggering commit
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Validate checkout and read Python version
+        id: versions
+        shell: pwsh
+        run: |
+          $headCommit = (git rev-parse HEAD).Trim()
+          if ($headCommit -ne $env:GITHUB_SHA) {
+              throw "HEAD '$headCommit' does not match triggering commit '$env:GITHUB_SHA'."
+          }
+
+          $requiredScripts = @('init.bat', 'build.bat', 'collect.bat')
+          $missingScripts = @($requiredScripts | Where-Object { -not (Test-Path -LiteralPath $_ -PathType Leaf) })
+          if ($missingScripts.Count -ne 0) {
+              throw "Triggering commit is missing required scripts: $($missingScripts -join ', ')"
+          }
+
+          $versionLine = Get-Content -LiteralPath 'versions.conf' | Where-Object { $_ -match '^PYTHON_VERSION=' } | Select-Object -First 1
+          if (-not $versionLine) {
+              throw 'PYTHON_VERSION is missing from versions.conf.'
+          }
+          $pythonVersion = $versionLine.Split('=', 2)[1].Trim()
+          "python_version=$pythonVersion" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
+
+      - name: Set up Python ${{ steps.versions.outputs.python_version }} x64
+        uses: actions/setup-python@v7
+        with:
+          python-version: ${{ steps.versions.outputs.python_version }}
+          architecture: x64
+
+      - name: Initialize dependencies
+        shell: cmd
+        run: call init.bat
+
+      - name: Build Release package
+        shell: cmd
+        run: call build.bat
+
+      - name: Collect Release results
+        shell: cmd
+        run: call collect.bat
+
+      - name: Verify Windows results
+        shell: pwsh
+        run: |
+          $pydFiles = @(Get-ChildItem -LiteralPath 'output/result/pysf' -Filter 'pysf*.pyd' -File)
+          if ($pydFiles.Count -ne 1) {
+              throw "Expected exactly one PySF extension module, found $($pydFiles.Count)."
+          }
+
+          $requiredDlls = @(
+              'sfml-audio-3.dll',
+              'sfml-graphics-3.dll',
+              'sfml-network-3.dll',
+              'sfml-system-3.dll',
+              'sfml-window-3.dll',
+              'msvcp140.dll',
+              'vcruntime140.dll',
+              'vcruntime140_1.dll'
+          )
+          foreach ($dll in $requiredDlls) {
+              $path = Join-Path 'output/result/pysf' $dll
+              if (-not (Test-Path -LiteralPath $path -PathType Leaf)) {
+                  throw "Missing Windows runtime DLL: $path"
+              }
+          }
+          if (-not (Get-ChildItem -LiteralPath 'output/result/lib' -Filter '*.lib' -File)) {
+              throw 'The Windows library result does not contain any .lib files.'
+          }
+
+      - name: Pack Windows archives
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Path 'release-assets' -Force | Out-Null
+          Compress-Archive -LiteralPath 'output/result/pysf' -DestinationPath 'release-assets/pysf-Windows-x64-MSVC.zip' -CompressionLevel Optimal
+          Compress-Archive -LiteralPath 'output/result/lib' -DestinationPath 'release-assets/pysf-lib-Windows-x64-MSVC.zip' -CompressionLevel Optimal
+
+          $expectedPackages = @(
+              'release-assets/pysf-Windows-x64-MSVC.zip',
+              'release-assets/pysf-lib-Windows-x64-MSVC.zip'
+          )
+          foreach ($package in $expectedPackages) {
+              if (-not (Test-Path -LiteralPath $package -PathType Leaf)) {
+                  throw "Missing package: $package"
+              }
+              if ((Get-Item -LiteralPath $package).Length -eq 0) {
+                  throw "Package is empty: $package"
+              }
+          }
+
+      - name: Upload Windows packages
+        uses: actions/upload-artifact@v7
+        with:
+          name: PySF-Windows-VS2022-x64
+          path: release-assets/*.zip
+          if-no-files-found: error
+          compression-level: 0
+
+  macos-apple-silicon:
+    name: macOS Apple Silicon arm64
+    runs-on: macos-15
+    timeout-minutes: 120
+    env:
+      CMAKE_OSX_ARCHITECTURES: arm64
+
+    steps:
+      - name: Checkout triggering commit
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Validate runner, checkout, and build scripts
+        id: versions
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if [ "$(uname -m)" != "arm64" ]; then
+              echo 'Expected an Apple Silicon arm64 runner.' >&2
+              exit 1
+          fi
+          head_commit=$(git rev-parse HEAD)
+          if [ "$head_commit" != "$GITHUB_SHA" ]; then
+              echo "HEAD '$head_commit' does not match triggering commit '$GITHUB_SHA'." >&2
+              exit 1
+          fi
+          for script in init.sh build.sh collect.sh; do
+              if [ ! -f "$script" ]; then
+                  echo "Triggering commit is missing required script: $script" >&2
+                  exit 1
+              fi
+          done
+          chmod +x init.sh build.sh collect.sh ProjCMake.sh
+
+          python_version=$(sed -n 's/^PYTHON_VERSION=//p' versions.conf | head -n 1)
+          if [ -z "$python_version" ]; then
+              echo 'PYTHON_VERSION is missing from versions.conf.' >&2
+              exit 1
+          fi
+          echo "python_version=$python_version" >> "$GITHUB_OUTPUT"
+
+          libclang_path="$(brew --prefix llvm@18)/lib/libclang.dylib"
+          if [ ! -f "$libclang_path" ]; then
+              echo "Missing llvm@18 libclang: $libclang_path" >&2
+              exit 1
+          fi
+          echo "LIBCLANG_PATH=$libclang_path" >> "$GITHUB_ENV"
+
+      - name: Set up Python ${{ steps.versions.outputs.python_version }} arm64
+        uses: actions/setup-python@v7
+        with:
+          python-version: ${{ steps.versions.outputs.python_version }}
+          architecture: arm64
+
+      - name: Initialize dependencies
+        shell: sh
+        run: ./init.sh
+
+      - name: Build macOS Release package
+        shell: sh
+        run: ./build.sh
+
+      - name: Collect macOS Release result
+        shell: sh
+        run: ./collect.sh
+
+      - name: Verify and pack macOS result
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if find output/result/pysf -type f -name '*.dll' -print -quit | grep -q .; then
+              echo 'Unexpected Windows DLL in the macOS result.' >&2
+              exit 1
+          fi
+
+          extension_file=$(find output/result/pysf -maxdepth 1 -type f -name 'pysf*.so' -print -quit)
+          if [ -z "$extension_file" ]; then
+              echo 'The macOS result does not contain the PySF extension module.' >&2
+              exit 1
+          fi
+          while IFS= read -r binary; do
+              architectures=$(lipo -archs "$binary")
+              if [ "$architectures" != 'arm64' ]; then
+                  echo "Expected arm64-only Mach-O binary, got '$architectures': $binary" >&2
+                  exit 1
+              fi
+          done < <(find output/result/pysf -type f \( -name '*.dylib' -o -name '*.so' \) -print)
+
+          mkdir -p release-assets
+          ditto -c -k --sequesterRsrc --keepParent \
+              output/result/pysf \
+              release-assets/pysf-macOS-ARM64.zip
+
+          if [ ! -s 'release-assets/pysf-macOS-ARM64.zip' ]; then
+              echo 'Missing or empty macOS package.' >&2
+              exit 1
+          fi
+
+      - name: Upload macOS package
+        uses: actions/upload-artifact@v7
+        with:
+          name: PySF-macOS-AppleSilicon-arm64
+          path: release-assets/pysf-macOS-ARM64.zip
+          if-no-files-found: error
+          compression-level: 0
+
+  ios-apple-silicon:
+    name: iOS Apple Silicon arm64
+    runs-on: macos-15
+    timeout-minutes: 120
+    env:
+      IOS_PYTHON_SUPPORT_RELEASE: 3.12-b9
+      IOS_PYTHON_SUPPORT_ARCHIVE: Python-3.12-iOS-support.b9.tar.gz
+      IOS_PYTHON_SUPPORT_SHA256: a3be9e278c742911db54dd3045bd7451928813508771c9acf14b4af75294edd2
+
+    steps:
+      - name: Checkout triggering commit
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Validate runner, checkout, and build scripts
+        id: versions
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if [ "$(uname -m)" != "arm64" ]; then
+              echo 'Expected an Apple Silicon arm64 runner.' >&2
+              exit 1
+          fi
+          head_commit=$(git rev-parse HEAD)
+          if [ "$head_commit" != "$GITHUB_SHA" ]; then
+              echo "HEAD '$head_commit' does not match triggering commit '$GITHUB_SHA'." >&2
+              exit 1
+          fi
+          for script in init.sh build_ios.sh collect_ios.sh; do
+              if [ ! -f "$script" ]; then
+                  echo "Triggering commit is missing required script: $script" >&2
+                  exit 1
+              fi
+          done
+          chmod +x init.sh build_ios.sh collect_ios.sh ProjCMake_ios.sh
+
+          python_version=$(sed -n 's/^PYTHON_VERSION=//p' versions.conf | head -n 1)
+          if [ -z "$python_version" ]; then
+              echo 'PYTHON_VERSION is missing from versions.conf.' >&2
+              exit 1
+          fi
+          if [ "$python_version" != '3.12' ]; then
+              echo "The pinned iOS Python support package requires Python 3.12, got $python_version." >&2
+              exit 1
+          fi
+          echo "python_version=$python_version" >> "$GITHUB_OUTPUT"
+
+          libclang_path="$(brew --prefix llvm@18)/lib/libclang.dylib"
+          if [ ! -f "$libclang_path" ]; then
+              echo "Missing llvm@18 libclang: $libclang_path" >&2
+              exit 1
+          fi
+          echo "LIBCLANG_PATH=$libclang_path" >> "$GITHUB_ENV"
+
+      - name: Set up Python ${{ steps.versions.outputs.python_version }} arm64
+        uses: actions/setup-python@v7
+        with:
+          python-version: ${{ steps.versions.outputs.python_version }}
+          architecture: arm64
+
+      - name: Initialize dependencies
+        shell: sh
+        run: ./init.sh
+
+      - name: Prepare Python iOS support
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          archive_path="$RUNNER_TEMP/$IOS_PYTHON_SUPPORT_ARCHIVE"
+          archive_url="https://github.com/beeware/Python-Apple-support/releases/download/$IOS_PYTHON_SUPPORT_RELEASE/$IOS_PYTHON_SUPPORT_ARCHIVE"
+          curl --fail --location --retry 3 --output "$archive_path" "$archive_url"
+          echo "$IOS_PYTHON_SUPPORT_SHA256  $archive_path" | shasum -a 256 --check
+
+          mkdir -p ios_python
+          tar xzf "$archive_path" -C ios_python
+          if [ ! -f 'ios_python/Python.xcframework/ios-arm64/Python.framework/Python' ]; then
+              echo 'The iOS Python support archive has an unexpected layout.' >&2
+              exit 1
+          fi
+
+      - name: Build iOS Release package
+        shell: sh
+        run: ./build_ios.sh
+
+      - name: Collect iOS Release result
+        shell: sh
+        run: ./collect_ios.sh
+
+      - name: Verify and pack iOS result
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          found_static_library=0
+          while IFS= read -r library; do
+              found_static_library=1
+              architectures=$(lipo -archs "$library")
+              if [ "$architectures" != 'arm64' ]; then
+                  echo "Expected arm64-only iOS library, got '$architectures': $library" >&2
+                  exit 1
+              fi
+          done < <(find output/result_ios/pysf -maxdepth 1 -type f -name '*.a' -print)
+          if [ "$found_static_library" -eq 0 ]; then
+              echo 'The iOS result does not contain any static libraries.' >&2
+              exit 1
+          fi
+
+          ditto -c -k --sequesterRsrc --keepParent \
+              output/result_ios/pysf \
+              release-assets/pysf-iOS-ARM64.zip
+
+          if [ ! -s 'release-assets/pysf-iOS-ARM64.zip' ]; then
+              echo 'Missing or empty iOS package.' >&2
+              exit 1
+          fi
+
+      - name: Upload iOS package
+        uses: actions/upload-artifact@v7
+        with:
+          name: PySF-iOS-AppleSilicon-arm64
+          path: release-assets/pysf-iOS-ARM64.zip
+          if-no-files-found: error
+          compression-level: 0

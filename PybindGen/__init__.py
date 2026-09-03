@@ -5,7 +5,7 @@ import traceback
 from pathlib import Path
 from ctypes.util import find_library
 import clang.cindex
-from .hppParser import Parser
+from .hppParser import Parser, ProjectParser
 from .bindingGenerator import Generator
 from .hppSorter import Sorter
 from .utils import scan_hpp_files
@@ -84,7 +84,38 @@ def generate_binding_from_hpp(
     READWRITE_IGNORE,
 ):
     parser = Parser(includes, hpp_root, hpp_file, cpp_version, ignored_macros)
-    items = parser.get_dict()
+    generate_binding_from_items(
+        common_module_name,
+        parser.get_dict(),
+        hpp_file,
+        output_file,
+        REPLACE_TYPE,
+        SPECIFIC_TYPE,
+        IGNORE_TYPE,
+        IGNORE_RETURN_TYPE,
+        SPECIFIC_RETURN_TYPE,
+        REPLACE_DEFAULT,
+        IGNORED_MODULE,
+        SPECIAL_REPLACE,
+        READWRITE_IGNORE,
+    )
+
+
+def generate_binding_from_items(
+    common_module_name,
+    items,
+    hpp_file,
+    output_file,
+    REPLACE_TYPE,
+    SPECIFIC_TYPE,
+    IGNORE_TYPE,
+    IGNORE_RETURN_TYPE,
+    SPECIFIC_RETURN_TYPE,
+    REPLACE_DEFAULT,
+    IGNORED_MODULE,
+    SPECIAL_REPLACE,
+    READWRITE_IGNORE,
+):
     generator = Generator(
         common_module_name,
         items,

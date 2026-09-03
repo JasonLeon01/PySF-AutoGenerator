@@ -33,6 +33,10 @@ fi
 if [ -d "${IOS_PYTHON_DIR}/include/python${IOS_PYTHON_VERSION}" ]; then
     IOS_PYTHON_INCLUDE="${IOS_PYTHON_DIR}/include/python${IOS_PYTHON_VERSION}"
     IOS_PYTHON_LIB="${IOS_PYTHON_DIR}/lib/libpython${IOS_PYTHON_VERSION}.a"
+elif [ -d "${IOS_PYTHON_DIR}/Python.xcframework/ios-arm64/Python.framework/Headers" ] && \
+     [ -f "${IOS_PYTHON_DIR}/Python.xcframework/ios-arm64/Python.framework/Python" ]; then
+    IOS_PYTHON_INCLUDE="${IOS_PYTHON_DIR}/Python.xcframework/ios-arm64/Python.framework/Headers"
+    IOS_PYTHON_LIB="${IOS_PYTHON_DIR}/Python.xcframework/ios-arm64/Python.framework/Python"
 elif [ -d "${IOS_PYTHON_DIR}/Python.xcframework/ios-arm64" ]; then
     IOS_PYTHON_INCLUDE="${IOS_PYTHON_DIR}/Python.xcframework/ios-arm64/Headers"
     if [ -f "${IOS_PYTHON_DIR}/Python.xcframework/ios-arm64/Python" ]; then
@@ -40,9 +44,6 @@ elif [ -d "${IOS_PYTHON_DIR}/Python.xcframework/ios-arm64" ]; then
     elif [ -f "${IOS_PYTHON_DIR}/Python.xcframework/ios-arm64/libPython${IOS_PYTHON_VERSION}.a" ]; then
         IOS_PYTHON_LIB="${IOS_PYTHON_DIR}/Python.xcframework/ios-arm64/libPython${IOS_PYTHON_VERSION}.a"
     fi
-elif [ -d "${IOS_PYTHON_DIR}/Python.xcframework/ios-arm64/Python.framework" ]; then
-    IOS_PYTHON_INCLUDE="${IOS_PYTHON_DIR}/Python.xcframework/ios-arm64/Python.framework/Headers"
-    IOS_PYTHON_LIB="${IOS_PYTHON_DIR}/Python.xcframework/ios-arm64/Python.framework/Python"
 fi
 
 if [ -z "${IOS_PYTHON_INCLUDE}" ] || [ -z "${IOS_PYTHON_LIB}" ]; then

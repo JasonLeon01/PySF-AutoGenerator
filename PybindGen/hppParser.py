@@ -1,6 +1,9 @@
 import os
 import re
 import sys
+from dataclasses import dataclass
+from pathlib import Path
+
 import clang.cindex
 from .utils import get_macos_clang_args
 
@@ -29,6 +32,17 @@ LITERAL_KINDS = (
     clang.cindex.CursorKind.CXX_BOOL_LITERAL_EXPR,
     clang.cindex.CursorKind.CXX_NULL_PTR_LITERAL_EXPR,
 )
+
+
+@dataclass(frozen=True)
+class ProjectParseResult:
+    translation_unit: clang.cindex.TranslationUnit
+    header_files: tuple[str, ...]
+    declarations_by_file: dict[str, list[dict]]
+    diagnostics: tuple[str, ...]
+
+    def declarations_for(self, header_file):
+        return self.declarations_by_file[os.path.abspath(header_file)]
 
 
 class Parser:
@@ -626,3 +640,121 @@ class Parser:
             )
 
         return node_dict
+
+
+class ProjectParser(Parser):
+    def __init__(self, includes, hpp_root, hpp_files, cpp_version, ignored_macros):
+        header_files = tuple(os.path.abspath(path) for path in hpp_files)
+        if not header_files:
+            raise ValueError("At least one header file is required")
+
+        include_root = os.path.abspath(hpp_root)
+        for header_file in header_files:
+            if os.path.commonpath([header_file, include_root]) != include_root:
+                raise ValueError(f"Header is outside the include root: {header_file}")
+
+        args = [
+            f"-std={cpp_version}",
+            "-x",
+            "c++",
+            "-I.",
+            includes,
+            "-Wno-macro-redefined",
+            *[f"-D{macro}=" for macro in ignored_macros],
+        ]
+        if sys.platform == "darwin":
+            args.extend(get_macos_clang_args())
+
+        umbrella_name = os.path.join(os.path.dirname(include_root), "__pysf_api_umbrella.hpp")
+        umbrella_content = "\n".join(
+            f'#include "{Path(header_file).relative_to(include_root).as_posix()}"'
+            for header_file in header_files
+        )
+        translation_unit = clang.cindex.Index.create().parse(
+            umbrella_name,
+            args,
+            unsaved_files=[(umbrella_name, umbrella_content)],
+            options=(
+                clang.cindex.TranslationUnit.PARSE_DETAILED_PROCESSING_RECORD
+                | clang.cindex.TranslationUnit.PARSE_SKIP_FUNCTION_BODIES
+            ),
+        )
+
+        self._include_root = include_root
+        include_graph = {}
+        root_cursors_by_file = {}
+        for cursor in translation_unit.cursor.get_children():
+            if cursor.kind == clang.cindex.CursorKind.INCLUSION_DIRECTIVE:
+                if not cursor.location or not cursor.location.file:
+                    continue
+                included_file = cursor.get_included_file()
+                if included_file is None:
+                    continue
+                owner = os.path.abspath(cursor.location.file.name)
+                include_graph.setdefault(owner, set()).add(os.path.abspath(included_file.name))
+                continue
+            if cursor.location and cursor.location.file:
+                source_file = os.path.abspath(cursor.location.file.name)
+                root_cursors_by_file.setdefault(source_file, []).append(cursor)
+
+        qualification_kinds = (
+            clang.cindex.CursorKind.CLASS_DECL,
+            clang.cindex.CursorKind.STRUCT_DECL,
+            clang.cindex.CursorKind.ENUM_DECL,
+            clang.cindex.CursorKind.NAMESPACE,
+            clang.cindex.CursorKind.TYPEDEF_DECL,
+            clang.cindex.CursorKind.TYPE_ALIAS_DECL,
+        )
+        include_prefix = os.path.normcase(include_root + os.sep)
+        qualification_candidates = []
+
+        def collect_qualification_candidates(cursor):
+            for child in cursor.get_children():
+                source_file = None
+                if child.location and child.location.file:
+                    source_file = os.path.abspath(child.location.file.name)
+                    if not os.path.normcase(source_file).startswith(include_prefix):
+                        continue
+                if source_file is not None and child.kind in qualification_kinds:
+                    qualification_candidates.append(
+                        (source_file, child.spelling, self._get_qualified_name(child))
+                    )
+                collect_qualification_candidates(child)
+
+        collect_qualification_candidates(translation_unit.cursor)
+
+        declarations_by_file = {header_file: [] for header_file in header_files}
+        for header_file in header_files:
+            reachable_files = {header_file}
+            pending = list(include_graph.get(header_file, ()))
+            while pending:
+                included_file = pending.pop()
+                if included_file in reachable_files:
+                    continue
+                reachable_files.add(included_file)
+                pending.extend(include_graph.get(included_file, ()))
+
+            self._surface_type_qualifications = {}
+            self._ambiguous_surface_type_names = set()
+            for source_file, name, qualified_name in qualification_candidates:
+                if source_file in reachable_files:
+                    self._remember_surface_type_qualification(name, qualified_name)
+
+            for cursor in root_cursors_by_file.get(header_file, ()):
+                declaration = self._node_to_dict(cursor, header_file)
+                if declaration is None:
+                    continue
+                if isinstance(declaration, list):
+                    declarations_by_file[header_file].extend(declaration)
+                else:
+                    declarations_by_file[header_file].append(declaration)
+
+        self._result = ProjectParseResult(
+            translation_unit=translation_unit,
+            header_files=header_files,
+            declarations_by_file=declarations_by_file,
+            diagnostics=tuple(str(diagnostic) for diagnostic in translation_unit.diagnostics),
+        )
+
+    def get_result(self):
+        return self._result

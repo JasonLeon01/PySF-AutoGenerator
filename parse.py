@@ -214,74 +214,71 @@ hpp_excludes = {
 if __name__ == "__main__":
     project_root = os.path.abspath(".")
     hpp_folders = PybindGen.scan_hpp_files(hpp_root, repo_root, parse_folders)
-    shutil.rmtree(output_folder, ignore_errors=True)
+    header_entries = []
     for folder, hpp_files in hpp_folders.items():
-        output_hpp = os.path.join(project_root, output_folder, "include", folder)
-        output_cpp = os.path.join(project_root, output_folder, "src", folder)
-        if not os.path.exists(output_cpp):
-            os.makedirs(output_cpp)
-        if not os.path.exists(output_hpp):
-            os.makedirs(output_hpp)
         for hpp_file in hpp_files:
             if hpp_file in hpp_excludes.get(folder, []):
                 print(f"Skipping {hpp_file}")
                 continue
-            print(f"Processing {hpp_file}")
             read_file = os.path.join(project_root, hpp_root, repo_root, folder, hpp_file)
-            output_file = os.path.join(project_root, output_cpp, f"bind_{hpp_file.split('.')[0]}.cpp")
-            PybindGen.generate_binding_from_hpp(
-                common_module_name,
-                hpp_root,
-                read_file,
-                output_file,
-                includes,
-                cpp_version,
-                ignored_macros,
-                REPLACE_TYPE,
-                SPECIFIC_TYPE,
-                IGNORE_TYPE,
-                IGNORE_RETURN_TYPE,
-                SPECIFIC_RETURN_TYPE,
-                REPLACE_DEFAULT,
-                IGNORED_MODULE,
-                SPECIAL_REPLACE,
-                READWRITE_IGNORE,
-            )
-            PybindGen.generate_hpp_file_from_hpp(
-                read_file,
-                hpp_file,
-                os.path.join(project_root, output_hpp, f"bind_{hpp_file}"),
-            )
+            header_entries.append((folder, hpp_file, read_file))
 
-    headers_to_sort = []
-    project_include_paths = [os.path.join(project_root, hpp_root)]
-    for folder, hpp_files in hpp_folders.items():
-        for hpp_file in hpp_files:
-            if hpp_file in hpp_excludes.get(folder, []):
-                print(f"Skipping {hpp_file}")
-                continue
-
-            headers_to_sort.append(os.path.join(project_root, hpp_root, repo_root, folder, hpp_file))
-
-    if not headers_to_sort:
-        print("No header files found to sort. Exiting.")
+    if not header_entries:
+        print("No header files found to parse. Exiting.")
         sys.exit(0)
 
-    print(f"Found {len(headers_to_sort)} header files to sort.")
+    print(f"Extracting API from {len(header_entries)} headers in one translation unit.")
     try:
-        sorter = PybindGen.Sorter(headers_to_sort, project_include_paths, cpp_version)
+        parse_result = PybindGen.ProjectParser(
+            includes,
+            hpp_root,
+            [entry[2] for entry in header_entries],
+            cpp_version,
+            ignored_macros,
+        ).get_result()
+        sorter = PybindGen.Sorter(
+            [entry[2] for entry in header_entries],
+            parse_result.translation_unit,
+        )
         sorter.build_graph()
-        for node, deps in sorter.dependency_graph.items():
-            if deps:
-                print(f"  {os.path.basename(node)} -> {[os.path.basename(d) for d in deps]}")
         sorted_files = sorter.sort()
+    except (RuntimeError, cindex.LibclangError) as error:
+        print(f"\nAn error occurred: {error}", file=sys.stderr)
+        sys.exit(1)
 
-    except (RuntimeError, cindex.LibclangError) as e:
-        print(f"\nAn error occurred: {e}", file=sys.stderr)
-        sys.exit(1)
-    except Exception as e:
-        print(f"\nAn unexpected error occurred: {e}", file=sys.stderr)
-        sys.exit(1)
+    if parse_result.diagnostics:
+        print("Clang diagnostics:")
+        for diagnostic in parse_result.diagnostics:
+            print(f"  - {diagnostic}")
+
+    shutil.rmtree(output_folder, ignore_errors=True)
+    for folder, hpp_file, read_file in header_entries:
+        print(f"Processing {hpp_file}")
+        output_hpp = os.path.join(project_root, output_folder, "include", folder)
+        output_cpp = os.path.join(project_root, output_folder, "src", folder)
+        os.makedirs(output_cpp, exist_ok=True)
+        os.makedirs(output_hpp, exist_ok=True)
+        output_file = os.path.join(project_root, output_cpp, f"bind_{hpp_file.split('.')[0]}.cpp")
+        PybindGen.generate_binding_from_items(
+            common_module_name,
+            parse_result.declarations_for(read_file),
+            read_file,
+            output_file,
+            REPLACE_TYPE,
+            SPECIFIC_TYPE,
+            IGNORE_TYPE,
+            IGNORE_RETURN_TYPE,
+            SPECIFIC_RETURN_TYPE,
+            REPLACE_DEFAULT,
+            IGNORED_MODULE,
+            SPECIAL_REPLACE,
+            READWRITE_IGNORE,
+        )
+        PybindGen.generate_hpp_file_from_hpp(
+            read_file,
+            hpp_file,
+            os.path.join(project_root, output_hpp, f"bind_{hpp_file}"),
+        )
 
     to_write_files = []
     for file in SELF_INCLUDE_FILES:
